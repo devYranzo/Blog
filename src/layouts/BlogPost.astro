@@ -8,7 +8,14 @@ import Header from '../components/Header.astro';
 
 type Props = CollectionEntry<'blog'>['data'];
 
-const { title, description, pubDate, updatedDate, heroImage, lang } = Astro.props;
+const {
+	title,
+	description,
+	pubDate,
+	updatedDate,
+	heroImage,
+	lang,
+} = Astro.props;
 ---
 
 <html lang={lang}>
@@ -16,54 +23,236 @@ const { title, description, pubDate, updatedDate, heroImage, lang } = Astro.prop
 		<BaseHead title={title} description={description} />
 
 		<style>
+			/* --------------------------------
+			 * Article layout
+			 * -------------------------------- */
+
 			main {
-				width: calc(100% - 2em);
-				max-width: 100%;
-				margin: 0;
+				width: 1000px;
+				max-width: calc(100% - 2em);
+				margin: 0 auto;
+				padding: 3rem 0 5rem;
+			}
+
+			/* --------------------------------
+			 * Hero card
+			 * -------------------------------- */
+
+			.article-header {
+				overflow: hidden;
+				background: var(--background);
+				border: 1px solid rgb(var(--gray-light));
+				border-radius: 16px;
+				box-shadow:
+					0 2px 6px rgba(var(--gray), 8%),
+					0 8px 20px rgba(var(--gray), 10%);
 			}
 
 			.hero-image {
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				box-sizing: border-box;
 				width: 100%;
+				height: 420px;
+				padding: 1.5rem;
+				background: rgb(var(--gray-light));
+				overflow: hidden;
 			}
 
 			.hero-image img {
 				display: block;
-				width: 100%;
-				max-width: 960px;
-				height: 510px;
-				margin: 0 auto;
-				padding: 0.5rem;
-				border-radius: 12px;
-				box-shadow: var(--box-shadow);
+				width: auto;
+				max-width: 100%;
+				height: auto;
+				max-height: 100%;
 				object-fit: contain;
+				border-radius: 12px;
+				filter: drop-shadow(5px 5px 5px var(--image-shadow));
 			}
 
-			.prose {
-				width: 720px;
-				max-width: calc(100% - 2em);
-				margin: auto;
-				padding: 1em;
-				color: rgb(var(--gray-dark));
-			}
+			/* --------------------------------
+			 * Article header content
+			 * -------------------------------- */
 
-			.title {
-				margin-bottom: 1em;
-				padding: 1em 0;
+			.article-header-content {
+				padding: 2.5rem 3rem 2.75rem;
 				text-align: center;
-				line-height: 1;
 			}
 
-			.title h1 {
-				margin: 0 0 0.5em 0;
-			}
-
-			.date {
-				margin-bottom: 0.5em;
+			.post-date {
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				gap: 0.4rem;
+				margin: 0 0 0.75rem;
 				color: rgb(var(--gray));
+				font-size: 0.95rem;
+			}
+
+			.post-date svg {
+				width: 18px;
+				height: 18px;
+				fill: currentColor;
+				flex-shrink: 0;
+			}
+
+			.article-title {
+				margin: 0;
+				color: rgb(var(--black));
+				font-size: 3rem;
+				line-height: 1.15;
+			}
+
+			.article-divider {
+				width: 70px;
+				height: 3px;
+				margin: 1.75rem auto 0;
+				background: var(--accent);
+				border: 0;
+				border-radius: 999px;
 			}
 
 			.last-updated-on {
+				margin-top: 0.35rem;
+				font-size: 0.85rem;
 				font-style: italic;
+			}
+
+			/* --------------------------------
+			 * Article content
+			 * -------------------------------- */
+
+			.article-content {
+				width: 720px;
+				max-width: 100%;
+				margin: 3rem auto 0;
+				color: rgb(var(--gray-dark));
+			}
+
+			.article-content :global(h2) {
+				margin-top: 2.5rem;
+			}
+
+			.article-content :global(h3) {
+				margin-top: 2rem;
+			}
+
+			.article-content :global(p) {
+				margin-bottom: 1.5rem;
+			}
+
+			.article-content :global(ul),
+			.article-content :global(ol) {
+				margin-bottom: 1.5rem;
+				padding-left: 1.5rem;
+			}
+
+			.article-content :global(li) {
+				margin-bottom: 0.5rem;
+			}
+
+			/* --------------------------------
+			 * Code
+			 * -------------------------------- */
+
+			.article-content :global(pre) {
+				margin: 2rem 0;
+				padding: 1.5rem;
+				overflow-x: auto;
+				background: rgb(var(--gray-light));
+				border: 1px solid rgba(var(--gray), 15%);
+				border-radius: 12px;
+			}
+
+			.article-content :global(code) {
+				border-radius: 4px;
+			}
+
+			.article-content :global(pre code) {
+				background: transparent;
+			}
+
+			/* --------------------------------
+			 * Blockquotes
+			 * -------------------------------- */
+
+			.article-content :global(blockquote) {
+				margin: 2rem 0;
+				padding: 0.75rem 0 0.75rem 1.25rem;
+				border-left: 4px solid var(--accent);
+				background: rgb(var(--gray-light));
+				border-radius: 0 8px 8px 0;
+			}
+
+			/* --------------------------------
+			 * Images inside articles
+			 * -------------------------------- */
+
+			.article-content :global(img) {
+				display: block;
+				margin: 2rem auto;
+				border-radius: 12px;
+			}
+
+			/* --------------------------------
+			 * Links
+			 * -------------------------------- */
+
+			.article-content :global(a) {
+				font-weight: 600;
+			}
+
+			/* --------------------------------
+			 * Mobile
+			 * -------------------------------- */
+
+			@media (max-width: 720px) {
+				main {
+					max-width: calc(100% - 1em);
+					padding: 1.5rem 0.5rem 3rem;
+				}
+
+				.hero-image {
+					height: 300px;
+					padding: 1rem;
+				}
+
+				.article-header-content {
+					padding: 2rem 1.5rem 2.25rem;
+				}
+
+				.article-title {
+					font-size: 2.2rem;
+				}
+
+				.article-content {
+					margin-top: 2rem;
+				}
+			}
+
+			@media (max-width: 480px) {
+				.hero-image {
+					height: 230px;
+				}
+
+				.article-header-content {
+					padding: 1.5rem 1rem 1.75rem;
+				}
+
+				.article-title {
+					font-size: 1.8rem;
+				}
+
+				.post-date {
+					font-size: 0.85rem;
+				}
+
+				.article-content :global(pre) {
+					margin-left: -0.5rem;
+					margin-right: -0.5rem;
+					border-radius: 8px;
+				}
 			}
 		</style>
 	</head>
@@ -73,38 +262,42 @@ const { title, description, pubDate, updatedDate, heroImage, lang } = Astro.prop
 
 		<main>
 			<article>
-				<div class="hero-image">
+				<header class="article-header">
 					{
 						heroImage && (
-							<Image
-								width={960}
-								src={heroImage}
-								alt=""
-							/>
+							<div class="hero-image">
+								<Image
+									width={1000}
+									src={heroImage}
+									alt=""
+								/>
+							</div>
 						)
 					}
-				</div>
 
-				<div class="prose">
-					<div class="title">
-						<div class="date">
+					<div class="article-header-content">
+						<div class="post-date">
+							<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" viewBox="0 -960 960 960"><path d="M200-80q-33 0-56.5-23.5T120-160v-560q0-33 23.5-56.5T200-800h40v-40q0-17 11.5-28.5T280-880t28.5 11.5T320-840v40h320v-40q0-17 11.5-28.5T680-880t28.5 11.5T720-840v40h40q33 0 56.5 23.5T840-720v560q0 33-23.5 56.5T760-80zm0-80h560v-400H200zm0-480h560v-80H200zm0 0v-80z"/></svg>
+
 							<FormattedDate date={pubDate} />
 
 							{
 								updatedDate && (
-									<div class="last-updated-on">
-										Last updated on{' '}
+									<span class="last-updated-on">
+										· Updated{' '}
 										<FormattedDate date={updatedDate} />
-									</div>
+									</span>
 								)
 							}
 						</div>
 
-						<h1>{title}</h1>
+						<h1 class="article-title">{title}</h1>
 
-						<hr />
+						<hr class="article-divider" />
 					</div>
+				</header>
 
+				<div class="article-content">
 					<slot />
 				</div>
 			</article>
