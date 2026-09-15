@@ -34,6 +34,26 @@ const {
 				padding: 3rem 0 5rem;
 			}
 
+			.back-to-home {
+				display: inline-flex;
+				align-items: center;
+				gap: 0.5rem;
+				margin-bottom: 1rem;
+				color: rgb(var(--gray-dark));
+				font-weight: 600;
+				text-decoration: none;
+			}
+
+			.back-to-home:hover {
+				color: var(--accent);
+			}
+
+			.back-to-home svg {
+				width: 18px;
+				height: 18px;
+				fill: currentColor;
+			}
+
 			/* --------------------------------
 			 * Hero card
 			 * -------------------------------- */
@@ -261,6 +281,10 @@ const {
 		<Header />
 
 		<main>
+			<a href="/" class="back-to-home">
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path d="m313-440 196 196q12 12 11.5 28T508-188q-12 11-28 11.5T452-188L188-452q-6-6-8.5-13t-2.5-15 2.5-15 8.5-13l264-264q11-11 27.5-11t28.5 11q12 12 12 28.5T508-715L313-520h447q17 0 28.5 11.5T800-480t-11.5 28.5T760-440z"/></svg>
+				Volver
+			</a>
 			<article>
 				<header class="article-header">
 					{
