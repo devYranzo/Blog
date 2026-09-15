@@ -13,7 +13,7 @@ const blog = defineCollection({
       heroImage: z.optional(image()),
 
       // Language of this translation.
-      lang: z.enum(["es", "en", "eus"]),
+      lang: z.enum(["es", "en", "eu"]),
 
       // Public URL of this translation.
       slug: z.string(),
