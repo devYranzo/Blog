@@ -1,19 +1,33 @@
 ---
 import { Image } from 'astro:assets';
 import { getCollection } from 'astro:content';
-import BaseHead from '../components/BaseHead.astro';
-import Footer from '../components/Footer.astro';
-import FormattedDate from '../components/FormattedDate.astro';
-import Header from '../components/Header.astro';
-import { SITE_DESCRIPTION, SITE_TITLE } from '../consts';
+import { getRelativeLocaleUrl } from 'astro:i18n';
 
-const posts = (await getCollection('blog')).sort(
-	(a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf(),
-);
+import BaseHead from './BaseHead.astro';
+import Footer from './Footer.astro';
+import FormattedDate from './FormattedDate.astro';
+import Header from './Header.astro';
+import { SITE_DESCRIPTION, SITE_TITLE } from '../consts';
+import { getTranslations } from '../i18n';
+
+
+interface Props {
+	lang: 'es' | 'en' | 'eu';
+}
+
+const { lang } = Astro.props;
+
+const t = getTranslations(lang);
+
+const posts = (await getCollection('blog'))
+	.filter((post) => post.data.lang === lang)
+	.sort(
+		(a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf(),
+	);
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang={lang}>
 	<head>
 		<BaseHead title={SITE_TITLE} description={SITE_DESCRIPTION} />
 
@@ -330,117 +344,94 @@ const posts = (await getCollection('blog')).sort(
 		<main>
 			<section>
 				<div class="language-selector">
-					<label for="language">Idioma</label>
+					<label for="language">{t.blog.language}</label>
 
-					<select id="language" aria-label="Seleccionar idioma">
-						<option value="es">Español</option>
-						<option value="en">English</option>
-						<option value="eu">Euskara</option>
-					</select>
+					<select
+            id="language"
+            aria-label={t.blog.selectLanguage}
+            onchange="window.location.href = this.value"
+          >
+            <option
+              value={getRelativeLocaleUrl('es')}
+              selected={lang === 'es'}
+            >
+              Español
+            </option>
+
+            <option
+              value={getRelativeLocaleUrl('en')}
+              selected={lang === 'en'}
+            >
+              English
+            </option>
+
+            <option
+              value={getRelativeLocaleUrl('eu')}
+              selected={lang === 'eu'}
+            >
+              Euskara
+            </option>
+          </select>
 				</div>
 
-				<ul class="post-list">
-					{
-						posts.map((post) => (
-							<li data-language={post.data.lang}>
-								<article class="post-card">
-									<a href={`/${post.data.lang}/${post.data.slug}/`}>
-										<div class="post-image">
-											{post.data.heroImage && (
-												<Image
-													width={960}
-													src={post.data.heroImage}
-													alt=""
-												/>
-											)}
-										</div>
+				{
+					posts.length === 0 ? (
+						<p class="empty-state">
+              {t.blog.noPosts}
+            </p>
+					) : (
+						<ul class="post-list">
+							{
+								posts.map((post) => (
+									<li>
+										<article class="post-card">
+											<a
+												href={`/${post.data.lang}/${post.data.slug}/`}
+											>
+												<div class="post-image">
+													{post.data.heroImage && (
+														<Image
+															width={960}
+															src={post.data.heroImage}
+															alt=""
+														/>
+													)}
+												</div>
 
-										<div class="post-content">
-											<h2 class="post-title">
-												{post.data.title}
-											</h2>
+												<div class="post-content">
+													<h2 class="post-title">
+														{post.data.title}
+													</h2>
 
-											<p class="post-description">
-												{post.data.description}
-											</p>
+													<p class="post-description">
+														{post.data.description}
+													</p>
 
-											<p class="post-date">
-												<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path d="M200-80q-33 0-56.5-23.5T120-160v-560q0-33 23.5-56.5T200-800h40v-40q0-17 11.5-28.5T280-880t28.5 11.5T320-840v40h320v-40q0-17 11.5-28.5T680-880t28.5 11.5T720-840v40h40q33 0 56.5 23.5T840-720v560q0 33-23.5 56.5T760-80zm0-80h560v-400H200zm0-480h560v-80H200zm0 0v-80z"/></svg>
-												<FormattedDate
-													date={post.data.pubDate}
-												/>
-											</p>
-										</div>
-									</a>
-								</article>
-							</li>
-						))
-					}
-				</ul>
+													<p class="post-date">
+														<svg
+															xmlns="http://www.w3.org/2000/svg"
+															viewBox="0 -960 960 960"
+															aria-hidden="true"
+														>
+															<path d="M200-80q-33 0-56.5-23.5T120-160v-560q0-33 23.5-56.5T200-800h40v-40q0-17 11.5-28.5T280-880t28.5 11.5T320-840v40h320v-40q0-17 11.5-28.5T680-880t28.5 11.5T720-840v40h40q33 0 56.5 23.5T840-720v560q0 33-23.5 56.5T760-80zm0-80h560v-400H200zm0-480h560v-80H200zm0 0v-80z" />
+														</svg>
 
-				<p class="empty-state" hidden>
-					No hay artículos disponibles en este idioma.
-				</p>
+														<FormattedDate
+															date={post.data.pubDate}
+														/>
+													</p>
+												</div>
+											</a>
+										</article>
+									</li>
+								))
+							}
+						</ul>
+					)
+				}
 			</section>
 		</main>
 
 		<Footer />
-
-		<script>
-			const defaultLanguage = 'es';
-
-			const languageSelector =
-				document.querySelector<HTMLSelectElement>('#language');
-
-			const posts =
-				document.querySelectorAll<HTMLElement>('[data-language]');
-
-			const emptyState =
-				document.querySelector<HTMLElement>('.empty-state');
-
-			const getUserLanguage = () => {
-				const browserLanguage =
-					navigator.language.toLowerCase().split('-')[0];
-
-				if (browserLanguage === 'eu') {
-					return 'eu';
-				}
-
-				if (browserLanguage === 'en' || browserLanguage === 'es') {
-					return browserLanguage;
-				}
-
-				return defaultLanguage;
-			};
-
-			const filterPosts = (selectedLanguage: string | undefined) => {
-				let visiblePosts = 0;
-
-				posts.forEach((post) => {
-					const isVisible =
-						post.dataset.language === selectedLanguage;
-
-					post.hidden = !isVisible;
-
-					visiblePosts += isVisible ? 1 : 0;
-				});
-
-				if (emptyState) {
-					emptyState.hidden = visiblePosts > 0;
-				}
-			};
-
-			const initialLanguage = getUserLanguage();
-
-			if (languageSelector) {
-				languageSelector.value = initialLanguage;
-			}
-
-			filterPosts(initialLanguage);
-
-			languageSelector?.addEventListener('change', () => {
-				filterPosts(languageSelector.value);
-			});
-		</script>
 	</body>
 </html>
