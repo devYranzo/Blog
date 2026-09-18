@@ -1,10 +1,12 @@
 ---
 import { Image } from 'astro:assets';
-import type { CollectionEntry } from 'astro:content';
+import { getCollection, type CollectionEntry } from 'astro:content';
+import { getRelativeLocaleUrl } from 'astro:i18n';
 import BaseHead from '../components/BaseHead.astro';
 import Footer from '../components/Footer.astro';
 import FormattedDate from '../components/FormattedDate.astro';
 import Header from '../components/Header.astro';
+import { getTranslations } from '../i18n';
 
 type Props = CollectionEntry<'blog'>['data'];
 
@@ -15,7 +17,29 @@ const {
 	updatedDate,
 	heroImage,
 	lang,
+	translationKey,
 } = Astro.props;
+
+const t = getTranslations(lang);
+
+const allPosts = await getCollection('blog');
+
+const translations = allPosts.filter(
+	(post) => post.data.translationKey === translationKey,
+);
+
+const translationUrls = {
+	es: null as string | null,
+	en: null as string | null,
+	eu: null as string | null,
+};
+
+for (const post of translations) {
+	translationUrls[post.data.lang] = getRelativeLocaleUrl(
+		post.data.lang,
+		post.data.slug,
+	);
+}
 ---
 
 <html lang={lang}>
@@ -34,11 +58,22 @@ const {
 				padding: 3rem 0 5rem;
 			}
 
+			/* --------------------------------
+			 * Article navigation
+			 * -------------------------------- */
+
+			.article-navigation {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: 1rem;
+				margin-bottom: 1rem;
+			}
+
 			.back-to-home {
 				display: inline-flex;
 				align-items: center;
 				gap: 0.5rem;
-				margin-bottom: 1rem;
 				color: rgb(var(--gray-dark));
 				font-weight: 600;
 				text-decoration: none;
@@ -52,6 +87,32 @@ const {
 				width: 18px;
 				height: 18px;
 				fill: currentColor;
+			}
+
+			.language-selector {
+				display: flex;
+				align-items: center;
+				gap: 0.75rem;
+			}
+
+			.language-selector label {
+				color: rgb(var(--gray-dark));
+				font-weight: 700;
+			}
+
+			.language-selector select {
+				padding: 0.35rem 0.5rem;
+				font: inherit;
+				color: rgb(var(--gray-dark));
+				background: var(--background);
+				border: 1px solid rgb(var(--gray-light));
+				border-radius: 6px;
+				cursor: pointer;
+			}
+
+			.language-selector select:focus {
+				outline: 2px solid var(--accent);
+				outline-offset: 2px;
 			}
 
 			/* --------------------------------
@@ -251,7 +312,12 @@ const {
 				}
 			}
 
-			@media (max-width: 480px) {
+			@media (max-width: 600px) {
+				.article-navigation {
+					align-items: flex-start;
+					flex-direction: column;
+				}
+
 				.hero-image {
 					height: 230px;
 				}
@@ -281,10 +347,62 @@ const {
 		<Header />
 
 		<main>
-			<a href="/" class="back-to-home">
-				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path d="m313-440 196 196q12 12 11.5 28T508-188q-12 11-28 11.5T452-188L188-452q-6-6-8.5-13t-2.5-15 2.5-15 8.5-13l264-264q11-11 27.5-11t28.5 11q12 12 12 28.5T508-715L313-520h447q17 0 28.5 11.5T800-480t-11.5 28.5T760-440z"/></svg>
-				Volver
-			</a>
+			<div class="article-navigation">
+				<a href={getRelativeLocaleUrl(lang)} class="back-to-home">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						viewBox="0 -960 960 960"
+						aria-hidden="true"
+					>
+						<path d="m313-440 196 196q12 12 11.5 28T508-188q-12 11-28 11.5T452-188L188-452q-6-6-8.5-13t-2.5-15 2.5-15 8.5-13l264-264q11-11 27.5-11t28.5 11q12 12 12 28.5T508-715L313-520h447q17 0 28.5 11.5T800-480t-11.5 28.5T760-440z" />
+					</svg>
+					{t.blog.back}
+				</a>
+
+				<div class="language-selector">
+					<label for="language">{t.blog.language}</label>
+
+					<select
+						id="language"
+						aria-label={t.blog.selectLanguage}
+						onchange="window.location.href = this.value"
+					>
+						{
+							translationUrls.es && (
+								<option
+									value={translationUrls.es}
+									selected={lang === 'es'}
+								>
+									Español
+								</option>
+							)
+						}
+
+						{
+							translationUrls.en && (
+								<option
+									value={translationUrls.en}
+									selected={lang === 'en'}
+								>
+									English
+								</option>
+							)
+						}
+
+						{
+							translationUrls.eu && (
+								<option
+									value={translationUrls.eu}
+									selected={lang === 'eu'}
+								>
+									Euskara
+								</option>
+							)
+						}
+					</select>
+				</div>
+			</div>
+
 			<article>
 				<header class="article-header">
 					{
@@ -301,14 +419,20 @@ const {
 
 					<div class="article-header-content">
 						<div class="post-date">
-							<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" viewBox="0 -960 960 960"><path d="M200-80q-33 0-56.5-23.5T120-160v-560q0-33 23.5-56.5T200-800h40v-40q0-17 11.5-28.5T280-880t28.5 11.5T320-840v40h320v-40q0-17 11.5-28.5T680-880t28.5 11.5T720-840v40h40q33 0 56.5 23.5T840-720v560q0 33-23.5 56.5T760-80zm0-80h560v-400H200zm0-480h560v-80H200zm0 0v-80z"/></svg>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								aria-hidden="true"
+								viewBox="0 -960 960 960"
+							>
+								<path d="M200-80q-33 0-56.5-23.5T120-160v-560q0-33 23.5-56.5T200-800h40v-40q0-17 11.5-28.5T280-880t28.5 11.5T320-840v40h320v-40q0-17 11.5-28.5T680-880t28.5 11.5T720-840v40h40q33 0 56.5 23.5T840-720v560q0 33-23.5 56.5T760-80zm0-80h560v-400H200zm0-480h560v-80H200zm0 0v-80z" />
+							</svg>
 
 							<FormattedDate date={pubDate} />
 
 							{
 								updatedDate && (
 									<span class="last-updated-on">
-										· Updated{' '}
+										· {t.blog.updated}{' '}
 										<FormattedDate date={updatedDate} />
 									</span>
 								)
