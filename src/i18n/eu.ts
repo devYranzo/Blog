@@ -10,5 +10,18 @@ export default {
     noPosts: "Ez dago artikulurik hizkuntza honetan.",
     back: "Itzuli",
     updated: "Eguneratua",
+
+    search: "Artikuluak bilatu...",
+    allCategories: "Kategoria guztiak",
+    noResults: "Ez dago uneko iragazkiekin bat datorren artikulurik.",
+
+    categories: {
+      development: "Garapena",
+      tools: "Tresnak",
+      frontend: "Frontend",
+      backend: "Backend",
+      devops: "DevOps",
+      architecture: "Arkitektura",
+    },
   },
 };

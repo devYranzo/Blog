@@ -20,6 +20,9 @@ const blog = defineCollection({
 
       // Identifies the article shared by all translations.
       translationKey: z.string(),
+
+      // Categories shared by the different translations.
+      categories: z.array(z.string()).default([]),
     }),
 });
 

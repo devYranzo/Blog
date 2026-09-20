@@ -10,7 +10,6 @@ import Header from './Header.astro';
 import { SITE_DESCRIPTION, SITE_TITLE } from '../consts';
 import { getTranslations } from '../i18n';
 
-
 interface Props {
 	lang: 'es' | 'en' | 'eu';
 }
@@ -24,6 +23,12 @@ const posts = (await getCollection('blog'))
 	.sort(
 		(a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf(),
 	);
+
+const categories = [
+	...new Set(
+		posts.flatMap((post) => post.data.categories),
+	),
+].sort();
 ---
 
 <!doctype html>
@@ -40,34 +45,67 @@ const posts = (await getCollection('blog'))
 			}
 
 			/* --------------------------------
-			 * Language selector
+			 * Language selector + filters
 			 * -------------------------------- */
 
-			.language-selector {
+			.blog-controls {
 				display: flex;
 				align-items: center;
-				gap: 0.75rem;
+				justify-content: space-between;
+				gap: 1rem;
 				margin-bottom: 1rem;
+				flex-wrap: wrap;
 			}
 
-			.language-selector label {
-				color: rgb(var(--gray-dark));
-				font-weight: 700;
+			.filtros {
+				display: flex;
+				align-items: center;
+				gap: 1rem;
+				flex-wrap: wrap;
 			}
 
-			.language-selector select {
-				padding: 0.35rem 0.5rem;
+			.filter-form {
+				display: flex;
+				align-items: center;
+				gap: 0.5rem;
+				padding: 0.1rem 0.5rem;
 				font: inherit;
 				color: rgb(var(--gray-dark));
 				background: var(--background);
 				border: 1px solid rgb(var(--gray-light));
-				border-radius: 6px;
+				border-radius: 12px;
+			}
+
+			.filter-form select {
+				font: inherit;
+				color: rgb(var(--gray-dark));
+				background: var(--background);
+				border: none;
+				outline: none;
+			}
+
+			.filter-form select {
 				cursor: pointer;
 			}
 
-			.language-selector select:focus {
-				outline: 2px solid var(--accent);
-				outline-offset: 2px;
+			.filter-form svg {
+				width: 20px;
+				height: 20px;
+				fill: currentColor;
+				flex-shrink: 0;
+			}
+
+			.search-input {
+				width: 220px;
+				font: inherit;
+				color: rgb(var(--gray-dark));
+				background: var(--background);
+				border: none;
+				outline: none;
+			}
+
+			.category-filter select {
+				min-width: 180px;
 			}
 
 			/* --------------------------------
@@ -97,7 +135,7 @@ const posts = (await getCollection('blog'))
 				overflow: hidden;
 				background: var(--background);
 				border: 1px solid rgb(var(--gray-light));
-				border-radius: 16px;
+				border-radius: 12px;
 				box-shadow:
 					0 2px 6px rgba(var(--gray), 8%),
 					0 8px 20px rgba(var(--gray), 10%);
@@ -244,10 +282,43 @@ const posts = (await getCollection('blog'))
 			}
 
 			/* --------------------------------
+			 * Categories
+			 * -------------------------------- */
+
+			.post-categories {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 0.4rem;
+				margin: 0 0 1rem 0;
+			}
+
+			.post-category {
+				display: inline-flex;
+				align-items: center;
+				padding: 0.25rem 0.55rem;
+				border-radius: 999px;
+				background: rgba(var(--gray-light), 70%);
+				color: rgb(var(--gray-dark));
+				font-size: 0.75rem;
+				font-weight: 600;
+				line-height: 1.2;
+			}
+
+			/* --------------------------------
 			 * Empty state
 			 * -------------------------------- */
 
 			.empty-state {
+				padding: 3rem 1rem;
+				text-align: center;
+				color: rgb(var(--gray));
+			}
+
+			/* --------------------------------
+			 * No search results
+			 * -------------------------------- */
+
+			.no-results {
 				padding: 3rem 1rem;
 				text-align: center;
 				color: rgb(var(--gray));
@@ -294,8 +365,19 @@ const posts = (await getCollection('blog'))
 					padding: 6.5rem 0.5em 3rem;
 				}
 
-				.language-selector {
+				.blog-controls {
+					align-items: stretch;
+					flex-direction: column;
 					margin-bottom: 1.5rem;
+				}
+
+				.language-selector {
+					margin-bottom: 0;
+				}
+
+				.search-input,
+				.category-filter select {
+					width: 100%;
 				}
 
 				.post-list {
@@ -345,95 +427,245 @@ const posts = (await getCollection('blog'))
 
 		<main>
 			<section>
-				<div class="language-selector">
-					<label for="language">{t.blog.language}</label>
+				<div class="blog-controls">
+					<div class="filtros">
+						<div class="filter-form">
+							<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="#e3e3e3" viewBox="0 -960 960 960"><path d="M325-111.5q-73-31.5-127.5-86t-86-127.5T80-480.5t31.5-155 86-127 127.5-86T480.5-880t155 31.5 127 86 86 127 31.5 155T848.5-325t-86 127.5-127 86-155 31.5T325-111.5M480-162q26-36 45-75t31-83H404q12 44 31 83t45 75m-104-16q-18-33-31.5-68.5T322-320H204q29 50 72.5 87t99.5 55m208 0q56-18 99.5-55t72.5-87H638q-9 38-22.5 73.5T584-178M170-400h136q-3-20-4.5-39.5T300-480t1.5-40.5T306-560H170q-5 20-7.5 39.5T160-480t2.5 40.5T170-400m216 0h188q3-20 4.5-39.5T580-480t-1.5-40.5T574-560H386q-3 20-4.5 39.5T380-480t1.5 40.5T386-400m268 0h136q5-20 7.5-39.5T800-480t-2.5-40.5T790-560H654q3 20 4.5 39.5T660-480t-1.5 40.5T654-400m-16-240h118q-29-50-72.5-87T584-782q18 33 31.5 68.5T638-640m-234 0h152q-12-44-31-83t-45-75q-26 36-45 75t-31 83m-200 0h118q9-38 22.5-73.5T376-782q-56 18-99.5 55T204-640"/></svg>
 
-					<select
-            id="language"
-            aria-label={t.blog.selectLanguage}
-            onchange="window.location.href = this.value"
-          >
-            <option
-              value={getRelativeLocaleUrl('es')}
-              selected={lang === 'es'}
-            >
-              Español
-            </option>
+							<select
+								id="language"
+								aria-label={t.blog.selectLanguage}
+								onchange="window.location.href = this.value"
+							>
+								<option
+									value={getRelativeLocaleUrl('es')}
+									selected={lang === 'es'}
+								>
+									Español
+								</option>
 
-            <option
-              value={getRelativeLocaleUrl('en')}
-              selected={lang === 'en'}
-            >
-              English
-            </option>
+								<option
+									value={getRelativeLocaleUrl('en')}
+									selected={lang === 'en'}
+								>
+									English
+								</option>
 
-            <option
-              value={getRelativeLocaleUrl('eu')}
-              selected={lang === 'eu'}
-            >
-              Euskara
-            </option>
-          </select>
+								<option
+									value={getRelativeLocaleUrl('eu')}
+									selected={lang === 'eu'}
+								>
+									Euskara
+								</option>
+							</select>
+						</div>
+
+						<div class="filter-form">
+							<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="#e3e3e3" viewBox="0 -960 960 960"><path d="M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h440q19 0 36 8.5t28 23.5l180 240q16 21 16 48t-16 48L664-192q-11 15-28 23.5t-36 8.5zm0-80h440l180-240-180-240H160zm310-240"/></svg>
+
+							<select
+								id="category-filter"
+								aria-label={t.blog.allCategories}
+							>
+								<option value="">
+									{t.blog.allCategories}
+								</option>
+
+								{
+									categories.map((category) => (
+										<option value={category}>
+											{t.blog.categories[
+												category as keyof typeof t.blog.categories
+											] ?? category}
+										</option>
+									))
+								}
+							</select>
+						</div>
+					</div>
+
+					<form class="filter-form" onsubmit="return false">
+						<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="#e3e3e3" viewBox="0 -960 960 960"><path d="M380-320q-109 0-184.5-75.5T120-580t75.5-184.5T380-840t184.5 75.5T640-580q0 44-14 83t-38 69l224 224q11 11 11 28t-11 28-28 11-28-11L532-372q-30 24-69 38t-83 14m0-80q75 0 127.5-52.5T560-580t-52.5-127.5T380-760t-127.5 52.5T200-580t52.5 127.5T380-400"/></svg>
+						<input
+							id="blog-search"
+							class="search-input"
+							type="search"
+							placeholder={t.blog.search}
+							aria-label={t.blog.search}
+							autocomplete="off"
+						/>
+					</form>
+
 				</div>
 
 				{
 					posts.length === 0 ? (
 						<p class="empty-state">
-              {t.blog.noPosts}
-            </p>
+							{t.blog.noPosts}
+						</p>
 					) : (
-						<ul class="post-list">
-							{
-								posts.map((post) => (
-									<li>
-										<article class="post-card">
-											<a
-												href={`/${post.data.lang}/${post.data.slug}/`}
-											>
-												<div class="post-image">
-													{post.data.heroImage && (
-														<Image
-															width={960}
-															src={post.data.heroImage}
-															alt=""
-														/>
-													)}
-												</div>
+						<>
+							<ul class="post-list" id="post-list">
+								{
+									posts.map((post) => (
+										<li
+											data-title={post.data.title.toLowerCase()}
+											data-description={post.data.description.toLowerCase()}
+											data-categories={post.data.categories.join(' ').toLowerCase()}
+										>
+											<article class="post-card">
+												<a
+													href={`/${post.data.lang}/${post.data.slug}/`}
+												>
+													<div class="post-image">
+														{post.data.heroImage && (
+															<Image
+																width={960}
+																src={post.data.heroImage}
+																alt=""
+															/>
+														)}
+													</div>
 
-												<div class="post-content">
-													<h2 class="post-title">
-														{post.data.title}
-													</h2>
+													<div class="post-content">
+														<h2 class="post-title">
+															{post.data.title}
+														</h2>
 
-													<p class="post-description">
-														{post.data.description}
-													</p>
+														<p class="post-description">
+															{post.data.description}
+														</p>
 
-													<p class="post-date">
-														<svg
-															xmlns="http://www.w3.org/2000/svg"
-															viewBox="0 -960 960 960"
-															aria-hidden="true"
-														>
-															<path d="M200-80q-33 0-56.5-23.5T120-160v-560q0-33 23.5-56.5T200-800h40v-40q0-17 11.5-28.5T280-880t28.5 11.5T320-840v40h320v-40q0-17 11.5-28.5T680-880t28.5 11.5T720-840v40h40q33 0 56.5 23.5T840-720v560q0 33-23.5 56.5T760-80zm0-80h560v-400H200zm0-480h560v-80H200zm0 0v-80z" />
-														</svg>
+														{
+															post.data.categories.length > 0 && (
+																<div class="post-categories">
+																	{
+																		post.data.categories.map(
+																			(category) => (
+																				<span class="post-category">
+																					{t.blog.categories[
+																						category as keyof typeof t.blog.categories
+																					] ?? category}
+																				</span>
+																			),
+																		)
+																	}
+																</div>
+															)
+														}
 
-														<FormattedDate
-															date={post.data.pubDate}
-														/>
-													</p>
-												</div>
-											</a>
-										</article>
-									</li>
-								))
-							}
-						</ul>
+														<p class="post-date">
+															<svg
+																xmlns="http://www.w3.org/2000/svg"
+																viewBox="0 -960 960 960"
+																aria-hidden="true"
+															>
+																<path d="M200-80q-33 0-56.5-23.5T120-160v-560q0-33 23.5-56.5T200-800h40v-40q0-17 11.5-28.5T280-880t28.5 11.5T320-840v40h320v-40q0-17 11.5-28.5T680-880t28.5 11.5T720-840v40h40q33 0 56.5 23.5T840-720v560q0 33-23.5 56.5T760-80zm0-80h560v-400H200zm0-480h560v-80H200zm0 0v-80z" />
+															</svg>
+
+															<FormattedDate
+																date={post.data.pubDate}
+															/>
+														</p>
+													</div>
+												</a>
+											</article>
+										</li>
+									))
+								}
+							</ul>
+
+							<p
+								id="no-results"
+								class="no-results"
+								hidden
+							>
+								{t.blog.noResults}
+							</p>
+						</>
 					)
 				}
 			</section>
 		</main>
 
 		<Footer />
+
+		<script>
+			const searchInput =
+				document.querySelector('#blog-search');
+
+			const categoryFilter =
+				document.querySelector('#category-filter');
+
+			const postList =
+				document.querySelector('#post-list');
+
+			const noResults =
+				document.querySelector('#no-results');
+
+			if (
+				searchInput instanceof HTMLInputElement &&
+				categoryFilter instanceof HTMLSelectElement &&
+				postList instanceof HTMLElement &&
+				noResults instanceof HTMLElement
+			) {
+				const postItems =
+					Array.from(postList.querySelectorAll<HTMLLIElement>(':scope > li'));
+
+				const filterPosts = () => {
+					const searchTerm =
+						searchInput.value.trim().toLowerCase();
+
+					const selectedCategory =
+						categoryFilter.value;
+
+					let visiblePosts = 0;
+
+					for (const post of postItems) {
+						const title =
+							post.dataset.title ?? '';
+
+						const description =
+							post.dataset.description ?? '';
+
+						const categories =
+							post.dataset.categories ?? '';
+
+						const matchesSearch =
+							searchTerm === '' ||
+							title.includes(searchTerm) ||
+							description.includes(searchTerm) ||
+							categories.includes(searchTerm);
+
+						const matchesCategory =
+							selectedCategory === '' ||
+							categories
+								.split(' ')
+								.includes(selectedCategory);
+
+						const shouldShow =
+							matchesSearch && matchesCategory;
+
+						post.hidden = !shouldShow;
+
+						if (shouldShow) {
+							visiblePosts++;
+						}
+					}
+
+					noResults.hidden = visiblePosts > 0;
+				};
+
+				searchInput.addEventListener(
+					'input',
+					filterPosts,
+				);
+
+				categoryFilter.addEventListener(
+					'change',
+					filterPosts,
+				);
+			}
+		</script>
 	</body>
 </html>
