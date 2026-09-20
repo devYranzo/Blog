@@ -35,6 +35,8 @@ const posts = (await getCollection('blog'))
 			main {
 				width: 1200px;
 				max-width: calc(100% - 2em);
+				margin: 0 auto;
+				padding: 8rem 0 5rem;
 			}
 
 			/* --------------------------------
@@ -45,7 +47,7 @@ const posts = (await getCollection('blog'))
 				display: flex;
 				align-items: center;
 				gap: 0.75rem;
-				margin-bottom: 2rem;
+				margin-bottom: 1rem;
 			}
 
 			.language-selector label {
@@ -289,7 +291,7 @@ const posts = (await getCollection('blog'))
 			@media (max-width: 600px) {
 				main {
 					max-width: calc(100% - 1em);
-					padding: 1.5em 0.5em;
+					padding: 6.5rem 0.5em 3rem;
 				}
 
 				.language-selector {
