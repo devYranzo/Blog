@@ -1,0 +1,352 @@
+---
+interface Props {
+	currentLang: 'es' | 'en' | 'eu';
+	label: string;
+}
+
+const {
+	currentLang,
+	label,
+} = Astro.props;
+
+const languages = [
+	{
+		code: 'es',
+		label: 'Español',
+		url: '/es/',
+	},
+	{
+		code: 'en',
+		label: 'English',
+		url: '/en/',
+	},
+	{
+		code: 'eu',
+		label: 'Euskara',
+		url: '/eu/',
+	},
+] as const;
+
+const currentLanguage =
+	languages.find(
+		(language) => language.code === currentLang,
+	) ?? languages[0];
+---
+
+<div
+	class="language-filter"
+	data-language-filter
+>
+	<button
+		type="button"
+		class="language-filter-trigger"
+		aria-haspopup="listbox"
+		aria-expanded="false"
+		aria-label={label}
+	>
+		<span class="language-filter-current">
+			<span class="language-filter-icon">
+				{
+					currentLanguage.code === 'es' && (
+						<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" viewBox="0 0 32 24"><rect width="32" height="24" fill="#c60b1e" rx="3"/><path fill="#ffc400" d="M0 6h32v12H0z"/></svg>
+					)
+				}
+
+				{
+					currentLanguage.code === 'en' && (
+						<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" viewBox="0 0 60 40"><clipPath id="uk-clip-current"><rect width="60" height="40" rx="4"/></clipPath><g clip-path="url(#uk-clip-current)"><path fill="#012169" d="M0 0h60v40H0z"/><path stroke="#fff" stroke-width="10" d="m0 0 60 40m0-40L0 40"/><path stroke="#c8102e" stroke-width="5" d="m0 0 60 40m0-40L0 40"/><path stroke="#fff" stroke-width="14" d="M30 0v40M0 20h60"/><path stroke="#c8102e" stroke-width="8" d="M30 0v40M0 20h60"/></g></svg>
+					)
+				}
+
+				{
+					currentLanguage.code === 'eu' && (
+						<svg xmlns="http://www.w3.org/2000/svg" id="svg559" x="0" y="0" viewBox="0 0 304.05 168.84"><g id="g571" transform="translate(-28.946 -46.566)scale(.78253)"><path id="rect564" d="M37.004 59.643h388.5v214.79h-388.5z" style="fill-rule:evenodd;fill:red"/><path id="path570" d="m425.54 76.247-.11-16.74-36.9.172-351.49 197.73-.001 16.99 36.936-.24 351.56-197.91z" style="fill-rule:evenodd;fill:#008d00"/><path id="path568" d="M37.143 76.973V59.922l35.659-.139 352.53 197.84v16.68l-38.08-.14-350.11-197.19z" style="fill-rule:evenodd;fill:#008d00"/><path id="rect565" d="M213.06 59.643h32.864v215.62H213.06z" style="fill-rule:evenodd;stroke-width:.89061;fill:#fff"/><path id="rect566" d="M-183.57 36.766h32.864v388.48h-32.864z" style="fill-rule:evenodd;stroke-width:1.1978;fill:#fff" transform="rotate(-90.085)skewX(-.06)"/></g></svg>
+					)
+				}
+			</span>
+
+			<span class="language-filter-label">
+				{currentLanguage.label}
+			</span>
+		</span>
+
+		<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" class="language-filter-chevron" viewBox="0 -960 960 960"><path d="M480-344 240-584l56-56 184 184 184-184 56 56z"/></svg>
+	</button>
+
+	<div
+		class="language-filter-menu"
+		role="listbox"
+		aria-label={label}
+		hidden
+	>
+		{
+			languages.map((language) => {
+				const selected =
+					language.code === currentLang;
+
+				return (
+					<a
+						href={language.url}
+						class:list={[
+							'language-option',
+							{
+								'is-selected': selected,
+							},
+						]}
+						role="option"
+						aria-selected={selected}
+					>
+						<span class="language-option-icon">
+							{
+								language.code === 'es' && (
+									<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" viewBox="0 0 32 24"><rect width="32" height="24" fill="#c60b1e" rx="3"/><path fill="#ffc400" d="M0 6h32v12H0z"/></svg>
+								)
+							}
+
+							{
+								language.code === 'en' && (
+									<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" viewBox="0 0 60 40"><g clip-path={`url(#uk-clip-${language.code})`}><path fill="#012169" d="M0 0h60v40H0z"/><path stroke="#fff" stroke-width="10" d="m0 0 60 40m0-40L0 40"/><path stroke="#c8102e" stroke-width="5" d="m0 0 60 40m0-40L0 40"/><path stroke="#fff" stroke-width="14" d="M30 0v40M0 20h60"/><path stroke="#c8102e" stroke-width="8" d="M30 0v40M0 20h60"/></g></svg>
+								)
+							}
+
+							{
+								language.code === 'eu' && (
+                  <svg xmlns="http://www.w3.org/2000/svg" id="svg559" x="0" y="0" viewBox="0 0 304.05 168.84"><g id="g571" transform="translate(-28.946 -46.566)scale(.78253)"><path id="rect564" d="M37.004 59.643h388.5v214.79h-388.5z" style="fill-rule:evenodd;fill:red"/><path id="path570" d="m425.54 76.247-.11-16.74-36.9.172-351.49 197.73-.001 16.99 36.936-.24 351.56-197.91z" style="fill-rule:evenodd;fill:#008d00"/><path id="path568" d="M37.143 76.973V59.922l35.659-.139 352.53 197.84v16.68l-38.08-.14-350.11-197.19z" style="fill-rule:evenodd;fill:#008d00"/><path id="rect565" d="M213.06 59.643h32.864v215.62H213.06z" style="fill-rule:evenodd;stroke-width:.89061;fill:#fff"/><path id="rect566" d="M-183.57 36.766h32.864v388.48h-32.864z" style="fill-rule:evenodd;stroke-width:1.1978;fill:#fff" transform="rotate(-90.085)skewX(-.06)"/></g></svg>
+								)
+							}
+						</span>
+
+						<span class="language-option-label">
+							{language.label}
+						</span>
+
+						<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" class="language-option-check" viewBox="0 -960 960 960"><path d="M382-240 170-452l57-56 155 155 331-331 57 56z"/></svg>
+					</a>
+				);
+			})
+		}
+	</div>
+</div>
+
+<style>
+	.language-filter {
+		position: relative;
+		min-width: 150px;
+	}
+
+	.language-filter-trigger {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+		width: 100%;
+		font: inherit;
+		color: rgb(var(--gray-dark));
+		background: var(--background);
+		border: none;
+		cursor: pointer;
+	}
+
+	.language-filter-current {
+		display: flex;
+		align-items: center;
+		gap: 0.55rem;
+		min-width: 0;
+	}
+
+	.language-filter-icon {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 20px;
+		height: 20px;
+		flex-shrink: 0;
+		overflow: hidden;
+		border-radius: 4px;
+	}
+
+	.language-filter-icon svg {
+		display: block;
+		width: 100%;
+		height: 100%;
+	}
+
+	.language-filter-label {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.language-filter-chevron {
+		width: 18px;
+		height: 18px;
+		flex-shrink: 0;
+		fill: currentColor;
+		transition: transform 0.2s ease;
+	}
+
+	.language-filter.is-open
+		.language-filter-chevron {
+		transform: rotate(180deg);
+	}
+
+	.language-filter-menu {
+		position: absolute;
+		z-index: 20;
+		top: calc(100% + 0.5rem);
+		left: 0;
+		width: 100%;
+		min-width: 180px;
+		padding: 0.35rem;
+		background: var(--background);
+		border: 1px solid rgb(var(--gray-light));
+		border-radius: 12px;
+		box-shadow:
+			0 8px 20px rgba(var(--gray), 12%),
+			0 16px 32px rgba(var(--gray), 10%);
+	}
+
+	.language-filter-menu[hidden] {
+		display: none;
+	}
+
+	.language-option {
+		display: flex;
+		align-items: center;
+		gap: 0.65rem;
+		width: 100%;
+		padding: 0.55rem 0.6rem;
+		box-sizing: border-box;
+		color: rgb(var(--gray-dark));
+		text-align: left;
+		text-decoration: none;
+		border-radius: 8px;
+		cursor: pointer;
+		transition:
+			background 0.15s ease,
+			color 0.15s ease;
+	}
+
+	.language-option:hover,
+	.language-option:focus-visible {
+		background: rgba(var(--gray-light), 55%);
+		outline: none;
+	}
+
+	.language-option.is-selected {
+		background: rgba(var(--gray-light), 45%);
+		font-weight: 600;
+	}
+
+	.language-option-icon {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 20px;
+		height: 20px;
+		flex-shrink: 0;
+		overflow: hidden;
+		border-radius: 4px;
+	}
+
+	.language-option-icon svg {
+		display: block;
+		width: 100%;
+		height: 100%;
+	}
+
+	.language-option-label {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.language-option-check {
+		width: 17px;
+		height: 17px;
+		flex-shrink: 0;
+		fill: currentColor;
+		opacity: 0;
+	}
+
+	.language-option.is-selected
+		.language-option-check {
+		opacity: 1;
+	}
+
+	@media (max-width: 600px) {
+		.language-filter {
+			width: 100%;
+		}
+
+		.language-filter-menu {
+			width: 100%;
+		}
+	}
+</style>
+
+<script>
+	const languageFilters =
+		document.querySelectorAll<HTMLElement>(
+			'[data-language-filter]',
+		);
+
+	for (const filter of languageFilters) {
+		const trigger =
+			filter.querySelector<HTMLButtonElement>(
+				'.language-filter-trigger',
+			);
+
+		const menu =
+			filter.querySelector<HTMLElement>(
+				'.language-filter-menu',
+			);
+
+		if (!trigger || !menu) {
+			continue;
+		}
+
+		const open = () => {
+			filter.classList.add('is-open');
+			trigger.setAttribute(
+				'aria-expanded',
+				'true',
+			);
+			menu.hidden = false;
+		};
+
+		const close = () => {
+			filter.classList.remove('is-open');
+			trigger.setAttribute(
+				'aria-expanded',
+				'false',
+			);
+			menu.hidden = true;
+		};
+
+		trigger.addEventListener('click', () => {
+			if (menu.hidden) {
+				open();
+			} else {
+				close();
+			}
+		});
+
+		document.addEventListener('click', (event) => {
+			const target = event.target;
+
+			if (
+				target instanceof Node &&
+				!filter.contains(target)
+			) {
+				close();
+			}
+		});
+
+		document.addEventListener('keydown', (event) => {
+			if (event.key === 'Escape') {
+				close();
+				trigger.focus();
+			}
+		});
+	}
+</script>
