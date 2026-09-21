@@ -4,10 +4,13 @@ import { getCollection } from 'astro:content';
 import { getRelativeLocaleUrl } from 'astro:i18n';
 
 import BaseHead from './BaseHead.astro';
+import CategoryFilter from './CategoryFilter.astro';
+import CategoryIcon from './CategoryIcon.astro';
 import Footer from './Footer.astro';
 import FormattedDate from './FormattedDate.astro';
 import Header from './Header.astro';
 import { SITE_DESCRIPTION, SITE_TITLE } from '../consts';
+import { getCategory } from '../data/categories';
 import { getTranslations } from '../i18n';
 
 interface Props {
@@ -88,7 +91,7 @@ const categories = [
 				cursor: pointer;
 			}
 
-			.filter-form svg {
+			.filter-form > svg {
 				width: 20px;
 				height: 20px;
 				fill: currentColor;
@@ -102,10 +105,6 @@ const categories = [
 				background: var(--background);
 				border: none;
 				outline: none;
-			}
-
-			.category-filter select {
-				min-width: 180px;
 			}
 
 			/* --------------------------------
@@ -295,13 +294,25 @@ const categories = [
 			.post-category {
 				display: inline-flex;
 				align-items: center;
+				gap: 0.35rem;
 				padding: 0.25rem 0.55rem;
 				border-radius: 999px;
-				background: rgba(var(--gray-light), 70%);
-				color: rgb(var(--gray-dark));
+				background: rgba(var(--category-color), 12%);
+				color: rgb(var(--category-color));
 				font-size: 0.75rem;
 				font-weight: 600;
 				line-height: 1.2;
+			}
+
+			.post-category-icon {
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				flex-shrink: 0;
+			}
+
+			.post-category-icon :global(svg) {
+				display: block;
 			}
 
 			/* --------------------------------
@@ -375,8 +386,7 @@ const categories = [
 					margin-bottom: 0;
 				}
 
-				.search-input,
-				.category-filter select {
+				.search-input {
 					width: 100%;
 				}
 
@@ -430,7 +440,16 @@ const categories = [
 				<div class="blog-controls">
 					<div class="filtros">
 						<div class="filter-form">
-							<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="#e3e3e3" viewBox="0 -960 960 960"><path d="M325-111.5q-73-31.5-127.5-86t-86-127.5T80-480.5t31.5-155 86-127 127.5-86T480.5-880t155 31.5 127 86 86 127 31.5 155T848.5-325t-86 127.5-127 86-155 31.5T325-111.5M480-162q26-36 45-75t31-83H404q12 44 31 83t45 75m-104-16q-18-33-31.5-68.5T322-320H204q29 50 72.5 87t99.5 55m208 0q56-18 99.5-55t72.5-87H638q-9 38-22.5 73.5T584-178M170-400h136q-3-20-4.5-39.5T300-480t1.5-40.5T306-560H170q-5 20-7.5 39.5T160-480t2.5 40.5T170-400m216 0h188q3-20 4.5-39.5T580-480t-1.5-40.5T574-560H386q-3 20-4.5 39.5T380-480t1.5 40.5T386-400m268 0h136q5-20 7.5-39.5T800-480t-2.5-40.5T790-560H654q3 20 4.5 39.5T660-480t-1.5 40.5T654-400m-16-240h118q-29-50-72.5-87T584-782q18 33 31.5 68.5T638-640m-234 0h152q-12-44-31-83t-45-75q-26 36-45 75t-31 83m-200 0h118q9-38 22.5-73.5T376-782q-56 18-99.5 55T204-640"/></svg>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								width="24"
+								height="24"
+								fill="currentColor"
+								viewBox="0 -960 960 960"
+								aria-hidden="true"
+							>
+								<path d="M325-111.5q-73-31.5-127.5-86t-86-127.5T80-480.5t31.5-155 86-127 127.5-86T480.5-880t155 31.5 127 86 86 127 31.5 155T848.5-325t-86 127.5-127 86-155 31.5T325-111.5M480-162q26-36 45-75t31-83H404q12 44 31 83t45 75m-104-16q-18-33-31.5-68.5T322-320H204q29 50 72.5 87t99.5 55m208 0q56-18 99.5-55t72.5-87H638q-9 38-22.5 73.5T584-178M170-400h136q-3-20-4.5-39.5T300-480t1.5-40.5T306-560H170q-5 20-7.5 39.5T160-480t2.5 40.5T170-400m216 0h188q3-20 4.5-39.5T580-480t-1.5-40.5T574-560H386q-3 20-4.5 39.5T380-480t1.5 40.5T386-400m268 0h136q5-20 7.5-39.5T800-480t-2.5-40.5T790-560H654q3 20 4.5 39.5T660-480t-1.5 40.5T654-400m-16-240h118q-29-50-72.5-87T584-782q18 33 31.5 68.5T638-640m-234 0h152q-12-44-31-83t-45-75q-26 36-45 75t-31 83m-200 0h118q9-38 22.5-73.5T376-782q-56 18-99.5 55T204-640" />
+							</svg>
 
 							<select
 								id="language"
@@ -461,31 +480,30 @@ const categories = [
 						</div>
 
 						<div class="filter-form">
-							<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="#e3e3e3" viewBox="0 -960 960 960"><path d="M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h440q19 0 36 8.5t28 23.5l180 240q16 21 16 48t-16 48L664-192q-11 15-28 23.5t-36 8.5zm0-80h440l180-240-180-240H160zm310-240"/></svg>
-
-							<select
-								id="category-filter"
-								aria-label={t.blog.allCategories}
-							>
-								<option value="">
-									{t.blog.allCategories}
-								</option>
-
-								{
-									categories.map((category) => (
-										<option value={category}>
-											{t.blog.categories[
-												category as keyof typeof t.blog.categories
-											] ?? category}
-										</option>
-									))
-								}
-							</select>
+							<CategoryFilter
+								categoriesList={categories}
+								label={t.blog.allCategories}
+								allLabel={t.blog.allCategories}
+								translations={t.blog.categories}
+							/>
 						</div>
 					</div>
 
-					<form class="filter-form" onsubmit="return false">
-						<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="#e3e3e3" viewBox="0 -960 960 960"><path d="M380-320q-109 0-184.5-75.5T120-580t75.5-184.5T380-840t184.5 75.5T640-580q0 44-14 83t-38 69l224 224q11 11 11 28t-11 28-28 11-28-11L532-372q-30 24-69 38t-83 14m0-80q75 0 127.5-52.5T560-580t-52.5-127.5T380-760t-127.5 52.5T200-580t52.5 127.5T380-400"/></svg>
+					<form
+						class="filter-form"
+						onsubmit="return false"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="24"
+							height="24"
+							fill="currentColor"
+							viewBox="0 -960 960 960"
+							aria-hidden="true"
+						>
+							<path d="M380-320q-109 0-184.5-75.5T120-580t75.5-184.5T380-840t184.5 75.5T640-580q0 44-14 83t-38 69l224 224q11 11 11 28t-11 28-28 11-28-11L532-372q-30 24-69 38t-83 14m0-80q75 0 127.5-52.5T560-580t-52.5-127.5T380-760t-127.5 52.5T200-580t52.5 127.5T380-400" />
+						</svg>
+
 						<input
 							id="blog-search"
 							class="search-input"
@@ -495,7 +513,6 @@ const categories = [
 							autocomplete="off"
 						/>
 					</form>
-
 				</div>
 
 				{
@@ -505,13 +522,18 @@ const categories = [
 						</p>
 					) : (
 						<>
-							<ul class="post-list" id="post-list">
+							<ul
+								class="post-list"
+								id="post-list"
+							>
 								{
 									posts.map((post) => (
 										<li
 											data-title={post.data.title.toLowerCase()}
 											data-description={post.data.description.toLowerCase()}
-											data-categories={post.data.categories.join(' ').toLowerCase()}
+											data-categories={post.data.categories
+												.join(' ')
+												.toLowerCase()}
 										>
 											<article class="post-card">
 												<a
@@ -541,13 +563,35 @@ const categories = [
 																<div class="post-categories">
 																	{
 																		post.data.categories.map(
-																			(category) => (
-																				<span class="post-category">
-																					{t.blog.categories[
-																						category as keyof typeof t.blog.categories
-																					] ?? category}
-																				</span>
-																			),
+																			(category) => {
+																				const definition =
+																					getCategory(
+																						category,
+																					);
+
+																				return (
+																					<span
+																						class="post-category"
+																						style={`--category-color: ${definition.color}`}
+																					>
+																						<span class="post-category-icon">
+																							<CategoryIcon
+																								icon={
+																									definition.icon
+																								}
+																								size={14}
+																							/>
+																						</span>
+
+																						<span>
+																							{t.blog.categories[
+																								category as keyof typeof t.blog.categories
+																							] ??
+																								category}
+																						</span>
+																					</span>
+																				);
+																			},
 																		)
 																	}
 																</div>
@@ -595,7 +639,9 @@ const categories = [
 				document.querySelector('#blog-search');
 
 			const categoryFilter =
-				document.querySelector('#category-filter');
+				document.querySelector<HTMLElement>(
+					'[data-category-filter]',
+				);
 
 			const postList =
 				document.querySelector('#post-list');
@@ -605,19 +651,22 @@ const categories = [
 
 			if (
 				searchInput instanceof HTMLInputElement &&
-				categoryFilter instanceof HTMLSelectElement &&
+				categoryFilter instanceof HTMLElement &&
 				postList instanceof HTMLElement &&
 				noResults instanceof HTMLElement
 			) {
 				const postItems =
-					Array.from(postList.querySelectorAll<HTMLLIElement>(':scope > li'));
+					Array.from(
+						postList.querySelectorAll<HTMLLIElement>(
+							':scope > li',
+						),
+					);
+
+				let selectedCategory = '';
 
 				const filterPosts = () => {
 					const searchTerm =
 						searchInput.value.trim().toLowerCase();
-
-					const selectedCategory =
-						categoryFilter.value;
 
 					let visiblePosts = 0;
 
@@ -641,10 +690,13 @@ const categories = [
 							selectedCategory === '' ||
 							categories
 								.split(' ')
-								.includes(selectedCategory);
+								.includes(
+									selectedCategory,
+								);
 
 						const shouldShow =
-							matchesSearch && matchesCategory;
+							matchesSearch &&
+							matchesCategory;
 
 						post.hidden = !shouldShow;
 
@@ -653,7 +705,8 @@ const categories = [
 						}
 					}
 
-					noResults.hidden = visiblePosts > 0;
+					noResults.hidden =
+						visiblePosts > 0;
 				};
 
 				searchInput.addEventListener(
@@ -662,8 +715,19 @@ const categories = [
 				);
 
 				categoryFilter.addEventListener(
-					'change',
-					filterPosts,
+					'category-change',
+					(event) => {
+						if (
+							event instanceof CustomEvent &&
+							typeof event.detail?.value ===
+								'string'
+						) {
+							selectedCategory =
+								event.detail.value;
+
+							filterPosts();
+						}
+					},
 				);
 			}
 		</script>

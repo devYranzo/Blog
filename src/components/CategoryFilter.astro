@@ -1,0 +1,432 @@
+---
+import CategoryIcon from './CategoryIcon.astro';
+import { categories, getCategory } from '../data/categories';
+
+interface Props {
+	categoriesList: string[];
+	label: string;
+	allLabel: string;
+	translations: Record<string, string>;
+}
+
+const {
+	categoriesList,
+	label,
+	allLabel,
+	translations,
+} = Astro.props;
+
+const allIcon = getCategory('all');
+
+const getLabel = (category: string) =>
+	translations[category] ?? category;
+---
+
+<div
+	class="category-filter"
+	data-category-filter
+>
+	<button
+		type="button"
+		class="category-filter-trigger"
+		aria-haspopup="listbox"
+		aria-expanded="false"
+		aria-label={label}
+	>
+		<span class="category-filter-current">
+			<span
+				class="category-filter-icon"
+				style={`--category-color: ${allIcon.color}`}
+			>
+				<CategoryIcon icon={allIcon.icon} size={18} />
+			</span>
+
+			<span class="category-filter-label">
+				{allLabel}
+			</span>
+		</span>
+
+		<svg
+			class="category-filter-chevron"
+			xmlns="http://www.w3.org/2000/svg"
+			viewBox="0 -960 960 960"
+			aria-hidden="true"
+		>
+			<path d="M480-344 240-584l56-56 184 184 184-184 56 56-240 240Z" />
+		</svg>
+	</button>
+
+	<div
+		class="category-filter-menu"
+		role="listbox"
+		aria-label={label}
+		hidden
+	>
+		<button
+			type="button"
+			class="category-option is-selected"
+			data-category-value=""
+			role="option"
+			aria-selected="true"
+		>
+			<span
+				class="category-option-icon"
+				style={`--category-color: ${allIcon.color}`}
+			>
+				<CategoryIcon icon={allIcon.icon} size={17} />
+			</span>
+
+			<span class="category-option-label">
+				{allLabel}
+			</span>
+
+			<svg
+				class="category-option-check"
+				xmlns="http://www.w3.org/2000/svg"
+				viewBox="0 -960 960 960"
+				aria-hidden="true"
+			>
+				<path d="m382-240-212-212 57-56 155 155 331-331 57 56-388 388Z" />
+			</svg>
+		</button>
+
+		{
+			categoriesList.map((category) => {
+				const definition = getCategory(category);
+
+				return (
+					<button
+						type="button"
+						class="category-option"
+						data-category-value={category}
+						role="option"
+						aria-selected="false"
+					>
+						<span
+							class="category-option-icon"
+							style={`--category-color: ${definition.color}`}
+						>
+							<CategoryIcon
+								icon={definition.icon}
+								size={17}
+							/>
+						</span>
+
+						<span class="category-option-label">
+							{getLabel(category)}
+						</span>
+
+						<svg
+							class="category-option-check"
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 -960 960 960"
+							aria-hidden="true"
+						>
+							<path d="m382-240-212-212 57-56 155 155 331-331 57 56-388 388Z" />
+						</svg>
+					</button>
+				);
+			})
+		}
+	</div>
+
+	<input
+		type="hidden"
+		name="category"
+		value=""
+		data-category-input
+	/>
+</div>
+
+<style>
+	.category-filter {
+		position: relative;
+		min-width: 180px;
+	}
+
+	.category-filter-trigger {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+		width: 100%;
+		font: inherit;
+		color: rgb(var(--gray-dark));
+		background: var(--background);
+		border: none;
+		cursor: pointer;
+	}
+
+	.category-filter-current {
+		display: flex;
+		align-items: center;
+		gap: 0.55rem;
+		min-width: 0;
+	}
+
+	.category-filter-label {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.category-filter-icon,
+	.category-option-icon {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+		color: rgb(var(--category-color));
+	}
+
+	.category-filter-icon {
+		width: 20px;
+		height: 20px;
+	}
+
+	.category-filter-chevron {
+		width: 18px;
+		height: 18px;
+		flex-shrink: 0;
+		fill: currentColor;
+		transition: transform 0.2s ease;
+	}
+
+	.category-filter.is-open .category-filter-chevron {
+		transform: rotate(180deg);
+	}
+
+	.category-filter-menu {
+		position: absolute;
+		z-index: 20;
+		top: calc(100% + 0.5rem);
+		left: 0;
+		width: 100%;
+		min-width: 220px;
+		padding: 0.35rem;
+		background: var(--background);
+		border: 1px solid rgb(var(--gray-light));
+		border-radius: 12px;
+		box-shadow:
+			0 8px 20px rgba(var(--gray), 12%),
+			0 16px 32px rgba(var(--gray), 10%);
+	}
+
+	.category-filter-menu[hidden] {
+		display: none;
+	}
+
+	.category-option {
+		display: flex;
+		align-items: center;
+		gap: 0.65rem;
+		width: 100%;
+		padding: 0.55rem 0.6rem;
+		font: inherit;
+		color: rgb(var(--gray-dark));
+		text-align: left;
+		background: transparent;
+		border: none;
+		border-radius: 8px;
+		cursor: pointer;
+		transition:
+			background 0.15s ease,
+			color 0.15s ease;
+	}
+
+	.category-option:hover,
+	.category-option:focus-visible {
+		background: rgba(var(--gray-light), 55%);
+		outline: none;
+	}
+
+	.category-option.is-selected {
+		background: rgba(var(--gray-light), 45%);
+		font-weight: 600;
+	}
+
+	.category-option-icon {
+		width: 20px;
+		height: 20px;
+		padding: 0.2rem;
+		border-radius: 6px;
+		background: rgba(var(--category-color), 12%);
+	}
+
+	.category-option-label {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.category-option-check {
+		width: 17px;
+		height: 17px;
+		flex-shrink: 0;
+		fill: currentColor;
+		opacity: 0;
+	}
+
+	.category-option.is-selected .category-option-check {
+		opacity: 1;
+	}
+
+	@media (max-width: 600px) {
+		.category-filter {
+			width: 100%;
+		}
+
+		.category-filter-menu {
+			width: 100%;
+		}
+	}
+</style>
+
+<script>
+	const categoryFilters =
+		document.querySelectorAll<HTMLElement>('[data-category-filter]');
+
+	for (const filter of categoryFilters) {
+		const trigger =
+			filter.querySelector<HTMLButtonElement>(
+				'.category-filter-trigger',
+			);
+
+		const menu =
+			filter.querySelector<HTMLElement>(
+				'.category-filter-menu',
+			);
+
+		const input =
+			filter.querySelector<HTMLInputElement>(
+				'[data-category-input]',
+			);
+
+		const currentLabel =
+			filter.querySelector<HTMLElement>(
+				'.category-filter-label',
+			);
+
+		const currentIcon =
+			filter.querySelector<HTMLElement>(
+				'.category-filter-icon',
+			);
+
+		const options =
+			Array.from(
+				filter.querySelectorAll<HTMLButtonElement>(
+					'.category-option',
+				),
+			);
+
+		if (
+			!trigger ||
+			!menu ||
+			!input ||
+			!currentLabel ||
+			!currentIcon
+		) {
+			continue;
+		}
+
+		const open = () => {
+			filter.classList.add('is-open');
+			trigger.setAttribute('aria-expanded', 'true');
+			menu.hidden = false;
+		};
+
+		const close = () => {
+			filter.classList.remove('is-open');
+			trigger.setAttribute('aria-expanded', 'false');
+			menu.hidden = true;
+		};
+
+		const toggle = () => {
+			if (menu.hidden) {
+				open();
+			} else {
+				close();
+			}
+		};
+
+		trigger.addEventListener('click', toggle);
+
+		for (const option of options) {
+			option.addEventListener('click', () => {
+				const value =
+					option.dataset.categoryValue ?? '';
+
+				const label =
+					option.querySelector(
+						'.category-option-label',
+					)?.textContent?.trim() ?? '';
+
+				const icon =
+					option.querySelector<HTMLElement>(
+						'.category-option-icon',
+					);
+
+				input.value = value;
+				currentLabel.textContent = label;
+
+				if (icon) {
+					currentIcon.style.setProperty(
+						'--category-color',
+						icon.style.getPropertyValue(
+							'--category-color',
+						),
+					);
+
+					currentIcon.innerHTML =
+						icon.innerHTML;
+				}
+
+				for (const item of options) {
+					const selected =
+						item === option;
+
+					item.classList.toggle(
+						'is-selected',
+						selected,
+					);
+
+					item.setAttribute(
+						'aria-selected',
+						String(selected),
+					);
+				}
+
+				close();
+
+				filter.dispatchEvent(
+					new CustomEvent(
+						'category-change',
+						{
+							bubbles: true,
+							detail: {
+								value,
+							},
+						},
+					),
+				);
+			});
+		}
+
+		document.addEventListener('click', (event) => {
+			const target = event.target;
+
+			if (
+				target instanceof Node &&
+				!filter.contains(target)
+			) {
+				close();
+			}
+		});
+
+		document.addEventListener('keydown', (event) => {
+			if (event.key === 'Escape') {
+				close();
+				trigger.focus();
+			}
+		});
+	}
+</script>
