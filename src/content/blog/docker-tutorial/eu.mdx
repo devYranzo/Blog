@@ -1,0 +1,673 @@
+---
+title: "Docker: gidaliburu praktikoa garatzaileentzat"
+description: "Docker-ri buruzko sarrera bat, zein arazo konpontzen duen eta nola funtzionatzen duen ulertzeko."
+pubDate: "2026-09-23"
+heroImage: "/src/assets/docker-tutorial.png"
+slug: "docker-sakonean"
+translationKey: "mastering-docker"
+lang: "eu"
+categories: ["devops", "tools"]
+---
+
+## Sarrera
+
+"Nire makinan ondo funtzionatzen du" esaldia inoiz entzun baduzu, badakizu zein arazo konpontzeko sortu zen Docker. Proiektu bat ondo funtziona dezake zure ordenagailu eramangarrian eta huts egin dezake lankide baten zerbitzarian, edo are okerrago, produkzioan, mendekotasunen bertsioak, sistema eragilea edo sistemako liburutegiak bat ez datozelako soilik.
+
+Docker plataforma bat da, aplikazio bat behar duen guztiarekin batera paketatzeko —kodea, mendekotasunak, konfigurazioa, sistemako bitarrak— unitate autonomo batean, **kontainerra** deitzen dena. Kontainer horrek modu berean jokatzen du zure ordenagailu eramangarrian, proba-zerbitzari batean edo hodeian, ez baitu inguruko ingurunearen mende; bere ingurune propioa daramalako.
+
+Docker-ek konpontzen duen arazoa ez da soilik teknikoa, lan-fluxuarena ere bada. Docker erabiliz:
+
+- "Batzuetan funtzionatzen duten" instalazio-jarraibideen mendekotasunari uko egiten diozu.
+- Ingurune oso bat (aplikazioa, datu-basea, cachea) komando bakar batekin jaso dezakezu.
+- Garapen, proba eta produkzio arteko marruskadura murrizten duzu.
+- Taldeko edonork, edozein sistema eragilerekin, ingurune bera izatea errazten duzu.
+
+Gida hau amaitzean ulertuko duzu zer den kontainer bat eta zertan bereizten den makina birtual batetik, nola eraiki zure irudiak Dockerfile batekin, nola exekutatu eta kudeatu kontainerrak, nola iraunarazi datuak bolumenekin, nola konektatu hainbat zerbitzu sareekin eta Docker Compose-rekin, eta zein praktika on eta akats saihestu behar diren eguneroko lanean.
+
+## Zer da Docker?
+
+Docker, funtsean, **sistema eragilearen mailan** birtualizatzeko modu bat da, hardware mailan baino. Garrantzitsua den ulertzeko, komeni da aplikazio bat exekutatzeko hiru modu hauek konparatzea:
+
+**Aplikazio tradizionala (instalazio zuzena)**: softwarea zerbitzariaren sistema eragilean zuzenean instalatzen da. Liburutegiak, hizkuntza-bertsioak eta konfigurazioa partekatzen ditu makina horretan exekutatzen den beste guztiarekin. Beste aplikazio batek mendekotasun beraren bertsio ezberdina behar badu, gatazka sortzen da.
+
+**Makina birtuala**: hipervisor batek hardware osoa simulatzen du (CPU, memoria, diskoa), makina birtual bakoitzak bere sistema eragile propioa exekutatu dezan, bere kernel propioarekin, guztiz isolatuta. Oso sendoa da, baina makina birtual bakoitzak gigabyte batzuk pisatzen ditu eta minutuak behar ditu abiarazteko, sistema eragile oso bat abiarazten baitu.
+
+**Kontainerra**: hardwarea birtualizatu ordez, Docker-ek prozesuak isolatzen ditu ostalari-sistemaren kernel berean, Linux-en mekanismoak erabiliz (namespaces eta cgroups), kontainer bakoitzak prozesuen, sarearen eta fitxategi-sistemaren bere ikuspegi propioa izan dezan, kernel berri bat abiarazi behar izan gabe.
+
+```text
+Makina birtuala                Kontainerra
+┌──────────────┐                ┌──────────────┐
+│ App A        │                │ App A        │
+│ Liburutegiak │                │ Liburutegiak │
+│ SO gonbidatua│                ├──────────────┤
+├──────────────┤                │ App B        │
+│ Hipervisorra │                │ Liburutegiak │
+├──────────────┤                ├──────────────┤
+│ SO ostalaria │                │ Docker Engine│
+├──────────────┤                ├──────────────┤
+│ Hardwarea    │                │ SO ostalaria │
+└──────────────┘                ├──────────────┤
+                                │ Hardwarea    │
+                                └──────────────┘
+```
+
+Horrek azaltzen du zergatik diren kontainerrak askoz arinagoak: ez dute sistema eragile oso bat kargatzen, aplikazioak behar dituen fitxategi eta prozesuak baino. Milisegundutan edo segundutan abiarazten dira, ez minututan, eta irudi batek megabyte gutxi batzuk pisa ditzake gigabyte batzuen ordez.
+
+Garrantzitsua da "arina" eta "isolamendu gutxikoa" ez nahastea: kontainerrak elkarren artean isolatuta daude (bakoitzak bere fitxategi-sistema eta bere prozesuak ikusten ditu), baina ostalari-sistemaren kernela partekatzen dute, eta hori da, hain zuzen, hain azkar abiarazteko aukera ematen diena.
+
+## Oinarrizko kontzeptuak
+
+**Docker Engine** guztia kudeatzen duen softwarea da: irudiak eraikitzen ditu, kontainerrak sortu eta exekutatzen ditu, sareak eta bolumenak kudeatzen ditu. Atzeko planoan exekutatzen den daemon bat du (`dockerd`) eta terminaletik elkarreragiten duzun bezero bat (`docker`).
+
+**Irudia**: aplikazio bat exekutatzeko behar diren fitxategi-sistema, mendekotasunak eta konfigurazioa dituen irakurtzeko soilik den txantiloi aldaezina da. Irudi bat ez da bere kabuz exekutatzen; kontainerrak sortzeko oinarri den "moldea" da. Irudiak geruzaka eraikitzen dira, eta geruza bakoitzak aurrekoarekiko aldaketa bat adierazten du (mendekotasun bat instalatzea, fitxategi bat kopiatzea, etab.).
+
+**Kontainerra**: irudi baten exekuzioan dagoen instantzia da. Irudi bat exekutatzen duzunean, Docker-ek idazteko geruza bat gehitzen du irudiaren irakurtzeko soilik diren geruzen gainean, eta han bizi da kontainerrak exekutatzen den bitartean idazten duen guztia. Irudi beretik kontainer asko sor ditzakezu, bakoitza besteengandik isolatuta.
+
+**Dockerfile**: irudi bat nola eraiki deskribatzen duten urratsez urrats jarraibideak dituen testu-fitxategia da: zein oinarri-irudi erabili, zein fitxategi kopiatu, zein komando exekutatu, zein ataka esposatu, zein komando abiarazi amaieran.
+
+**Registry**: irudiak biltegiratu eta banatzen dituen zerbitzaria da. `docker pull` edo `docker push` egiten duzunean, registry batekin ari zara hitz egiten.
+
+**Docker Hub**: gehien erabiltzen den registry publikoa da, Docker Inc.-ek mantentzen duena. Bertan daude hizkuntza eta datu-baseen irudi ofizialak (`node`, `python`, `postgres`, `nginx`...) eta baita komunitateak argitaratutako irudiak ere. Registry pribatuak erabil ditzakezu (zure propioak, GitHub-enak, hodei-hornitzaileenak) Docker Hub erabiltzen duzun modu berean.
+
+**Bolumena**: Docker-ek kudeatutako datuak iraunarazteko mekanismoa da, kontainer jakin baten bizi-zikloaz kanpo existitzen dena. Kontainerra ezabatuta ere, bolumeneko datuak mantentzen dira.
+
+**Sarea**: kontainerrak, berez, sarearen aldetik isolatuta daude. Docker-ek sare birtualak sortzeko aukera ematen du kontainerrek elkarren artean izenez komunikatu ahal izateko, kanpora ezer esposatu gabe hala nahi ez bada.
+
+## Lehen kontainerra
+
+Zure lehen kontainerra exekutatuko dugu irudi ofizial sinple bat erabiliz, `nginx`, oso web zerbitzari arina.
+
+```bash
+docker pull nginx:alpine
+```
+
+Komando honek `nginx` irudia deskargatzen du, `alpine` etiketarekin (Alpine Linux-en oinarritutako aldaera oso txikia) Docker Hub-etik. Docker-ek oraindik zure makinan ez duzun irudiaren geruza bakoitza deskargatzen du; dagoeneko baduzu, ez du berriro deskargatzen.
+
+```bash
+docker run -d --name mi-nginx -p 8080:80 nginx:alpine
+```
+
+Hemen hainbat gauza gertatzen dira:
+
+- `-d`-k kontainerra atzeko planoan exekutatzen du (_detached_), zure terminala blokeatu gabe.
+- `--name mi-nginx`-ek izen irakurgarri bat ematen dio, identifikatzaile ausazko baten ordez.
+- `-p 8080:80`-ek kontainerreko 80 ataka (nginx-ek entzuten duena) zure makinako 8080 atakan argitaratzen du.
+- `nginx:alpine` kontainerra sortzeko oinarri den irudia da.
+
+Orain `http://localhost:8080` bisitatzen baduzu, nginx-en ongietorri orria ikusiko duzu, kontainerraren barrutik zerbitzatuta.
+
+```bash
+docker ps
+```
+
+Exekutatzen ari diren kontainerrak zerrendatzen ditu: identifikatzailea, irudia, komandoa, aktibo denbora, atakak eta izena. Barrutik, Docker Engine-k prozesu isolatu bat mantentzen du bere sare-espazio eta fitxategi-sistema propioarekin, eta argitaratutako atakaren trafikoa kontainerraren barne-atakara itzultzen du.
+
+```bash
+docker stop mi-nginx
+```
+
+Kontainerraren prozesu nagusiari itzaltze-seinale ordenatu bat bidaltzen dio eta bukatu arte itxaroten du. Kontainerrak exekutatzeari uzten dio, baina ez da desagertzen: bere idazteko geruza osorik dago oraindik, geldituta soilik.
+
+```bash
+docker rm mi-nginx
+```
+
+Kontainerra behin betiko ezabatzen du (geldituta egon behar du). Honek bere idazteko geruza ezabatzen du; bolumen batean ez zegoen edozein datu galdu egiten da. `nginx:alpine` irudiak, ordea, zure makinan jarraitzen du, beste kontainer bat sortzeko prest.
+
+## Dockerfile
+
+Dockerfile batek zure irudi propioa eraikitzeko aukera ematen dizu, oinarri-irudi batetik abiatuta, zure kodea eta konfigurazioa gehituz. Ikus dezagun Node.js aplikazio sinple baterako adibide funtzional bat:
+
+```dockerfile
+FROM node:20-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --omit=dev
+COPY src ./src
+ENV NODE_ENV=production
+EXPOSE 3000
+CMD ["node", "src/index.js"]
+```
+
+Jarraibidez jarraibide:
+
+- `FROM node:20-alpine`-k oinarri-irudia ezartzen du: Node.js 20 Alpine Linux gainean, distribuzio oso txiki bat. Irudi guztiak `FROM` batekin hasten dira.
+- `WORKDIR /app`-ek kontainerreko lan-direktorioa finkatzen du. Ez badago, Docker-ek sortzen du. Ondorengo jarraibide guztiak (`COPY`, `RUN`, `CMD`) bide horrekiko erlatiboan exekutatzen dira.
+- `COPY package*.json ./`-k mendekotasunen fitxategiak soilik kopiatzen ditu lehenengo, kode osoa baino ez. Hau nahita egiten da, eta hurrengo atalean ikusiko dugu cachearekin lotuta.
+- `RUN npm ci --omit=dev`-k komando bat exekutatzen du irudia eraikitzean, produkzio-mendekotasunak instalatuz. `RUN` bakoitzak geruza berri bat sortzen du.
+- `COPY src ./src`-k aplikazioaren kodea kopiatzen du.
+- `ENV NODE_ENV=production`-ek exekuzio-denboran kontainerrean eskuragarri egongo den ingurune-aldagai bat definitzen du.
+- `EXPOSE 3000`-ek aplikazioak 3000 atakan entzuten duela dokumentatzen du. Informatiboa da: ez du bere kabuz ezer argitaratzen kanpora; hori `docker run`-en `-p`-k egiten du.
+- `CMD ["node", "src/index.js"]`-ek kontainerra abiaraztean exekutatzen den komandoa definitzen du.
+
+### CMD vs ENTRYPOINT
+
+Hau da nahasterik ohikoenetako bat. Bi jarraibideek kontainerra abiaraztean zer exekutatzen den definitzen dute, baina ñabardura ezberdinekin:
+
+- `CMD`-k komando **lehenetsia** definitzen du, `docker run`-en amaieran beste komando bat pasatuz erraz gainidatz daitekeena. Adibidez, `docker run mi-imagen bash`-ek Dockerfile-ko `CMD`-a alde batera uzten du eta `bash` exekutatzen du ordez.
+- `ENTRYPOINT`-ek prozesu **nagusia** definitzen du, `docker run`-eko argumentu gehigarriekin gainidazten ez dena; argumentu horiek `ENTRYPOINT`-aren parametro gisa gehitzen dira.
+
+Konbinaziorik ohikoena `ENTRYPOINT` exekutagarri finkorako erabiltzea da eta `CMD` gerora alda daitezkeen lehenetsitako argumentuetarako:
+
+```dockerfile
+ENTRYPOINT ["node"]
+CMD ["src/index.js"]
+```
+
+Honekin, `docker run mi-imagen`-ek `node src/index.js` exekutatzen du, baina `docker run mi-imagen src/debug.js`-ek `node src/debug.js` exekutatzen du, bitarra behin eta berriz berridatzi beharrik gabe.
+
+## Irudiak eraikitzea
+
+```bash
+docker build -t mi-app:1.0 .
+```
+
+- `-t mi-app:1.0`-ek **tag** bat (izena:bertsioa) esleitzen dio irudi emaitzari. Tagik jartzen ez baduzu, Docker-ek `latest` erabiltzen du, eta horrek ez du esan nahi "azken bertsio ona"; tag lehenetsia besterik ez da; produkzioan hobe da saihestea eta bertsio esplizituak erabiltzea.
+- `.`-a **build context**a da: daemon-era bidaltzen den karpetaren edukia, `COPY` edo `ADD`-ekin fitxategiak kopiatu ahal izateko. Karpeta hori zenbat eta handiagoa izan, hainbat eta motelagoa izango da eraikuntza, eta horregatik komeni da behar ez dena baztertzea.
+
+### .dockerignore
+
+`.gitignore` baten antzera funtzionatzen du, baina build context-erako:
+
+```text
+node_modules
+npm-debug.log
+.git
+.env
+Dockerfile
+compose.yaml
+```
+
+`node_modules` baztertzeak irudiaren barruan berriz instalatuko diren mendekotasunak bidaltzea saihesten du; `.env` baztertzeak sekretuak nahi gabe agertzea saihesten du.
+
+### Geruzak eta cachea
+
+Dockerfile-ko jarraibide bakoitzak geruza bat sortzen du, eta Docker-ek geruza bakoitzaren emaitza cachean gordetzen du. Eraikuntza berri batean jarraibide bat eta aurreko guztia aldatu ez badira, Docker-ek cacheko geruza berrerabiltzen du, berriz exekutatu ordez.
+
+Horregatik, aurreko Dockerfile-an `package*.json` lehenengo kopiatzen dugu eta `npm ci` exekutatzen dugu kodearen gainerakoa kopiatu **baino lehen**: fitxategi iturburu bat soilik aldatzen baduzu baina mendekotasunak ez, Docker-ek `npm ci` geruza berrerabil dezake (normalean motelena), eta `COPY src` eta hurrengoa soilik errepikatu.
+
+```text
+FROM node:20-alpine        ← cacheko geruza
+WORKDIR /app                 ← cacheko geruza
+COPY package*.json ./        ← cacheko geruza (package.json aldatu ez bada)
+RUN npm ci --omit=dev        ← cacheko geruza (instalazioa berrerabiltzen du)
+COPY src ./src                 ← berreraikitzen da (kodea aldatu da)
+```
+
+Honek eraikuntzak askoz azkarragoak egiten ditu, eta geruza bakoitzaren emaitza determinista bada, erreproduzigarriagoak ere bai.
+
+## Kontainerrak exekutatu eta kudeatu
+
+`docker run`-en aukera erabilienetako batzuk:
+
+```bash
+docker run -d \
+  --name mi-app \
+  -p 3000:3000 \
+  -e NODE_ENV=production \
+  -e DATABASE_URL=postgres://user:pass@db:5432/appdb \
+  -v app_logs:/app/logs \
+  mi-app:1.0
+```
+
+- `-p 3000:3000`-ek ataka argitaratzen du: `ostalari_ataka:kontainer_ataka`.
+- `-e`-k kontainerrean ingurune-aldagai bat definitzen du; behar adina aldiz errepika dezakezu.
+- `-v app_logs:/app/logs`-ek `app_logs` bolumena `/app/logs` bidean muntatzen du kontainerrean.
+- `--name`-ek izen egonkor bat ematen dio kontainerrari, beste komando batzuetan erreferentzia egiteko erabilgarria.
+
+Modu interaktiboan lan egiteko, adibidez arazketarako:
+
+```bash
+docker run -it --rm mi-app:1.0 sh
+```
+
+`-it`-ek modu interaktiboa (`-i`) terminal batekin (`-t`) konbinatzen ditu, eta `--rm`-ek automatikoki ezabatzen du kontainerra irtetean, zaborra utzi nahi ez duzun proba puntualetarako erabilgarria.
+
+Atzeko planoan exekutatzeko terminala blokeatu gabe, `-d` (_detached_) erabiltzen duzu, nginx-ekin ikusi zenuen bezala; detached moduan dagoen kontainer baten logak ikusteko, `docker logs -f mi-app` erabili.
+
+## Datuen iraunkortasuna
+
+Berez, kontainer batek idazten duen guztia bere idazteko geruzan bizi da, kontainerra ezabatzean desagertzen dena. Benetan datuak iraunarazteko bi mekanismo daude:
+
+**Bolumenak (`docker volume`)**: Docker-ek erabat kudeatzen ditu. Docker-ek kudeatzen duen ostalari-sistemaren fitxategi-sistemaren zona batean bizi dira (ez duzu bide zehatza ezagutu behar), eta aplikazioen datuak iraunarazteko modu gomendatua dira, batez ere datu-baseenak.
+
+```bash
+docker volume create db_data
+docker run -d --name db -v db_data:/var/lib/postgresql/data postgres:16-alpine
+```
+
+**Bind mounts**: zure fitxategi-sistemako bide zehatz bat muntatzen dute kontainerrean. Zuk kontrolatzen duzu zehazki non dauden datuak.
+
+```bash
+docker run -d --name mi-app -v $(pwd)/src:/app/src mi-app:1.0
+```
+
+### Noiz erabili bakoitza
+
+Erabili **bolumenak** Docker-ek iraunkortasuna kudeatzea nahi duzunean (datu-baseak, ilarak, aplikazioak berrabiarazteen artean mantendu behar dituen edozein datu), zure makinako karpeta-egituraren mende egon gabe.
+
+Erabili **bind mounts** ostalariko fitxategi jakin batzuk kontainerretik ikusi edo editatu behar dituzunean, normalean garapenean: zure iturburu-kodea muntatzea aldaketak islatu daitezen irudia berreraiki gabe.
+
+Alde nagusia da nork kontrolatzen duen datuen kokapena: bolumenekin, Docker-ek; bind mount-ekin, zuk.
+
+## Sareak
+
+Berez, Docker-ek _bridge_ sare bat sortzen du, non kontainerrek elkarren artean hitz egin dezaketen sare berean badaude, kontainer-izenak ostalari-izenak balira bezala ebatziz, Docker-ek automatikoki kudeatzen duen **barne DNS** bati esker.
+
+```bash
+docker network create appnet
+docker run -d --name db --network appnet postgres:16-alpine
+docker run -d --name app --network appnet mi-app:1.0
+```
+
+`app`-en barruan, `db` erabiliz konekta zaitezke datu-basera, hostname bat balitz bezala; Docker-ek izen hori sare horretako `db` kontainerraren barne IP-ra ebazten du.
+
+### EXPOSE vs -p
+
+Honek nahasmendu asko sortzen du:
+
+```dockerfile
+EXPOSE 3000
+```
+
+dokumentazioa eta intentzioa baino ez da: kontainerraren barruko aplikazioak 3000 atakan entzuten duela adierazten du, eta beste tresna batzuentzako (Compose barne) seinale gisa balio du, baina **ez du bere kabuz ezer argitaratzen kanpora**.
+
+```bash
+-p 3000:3000
+```
+
+`docker run`-en benetan argitaratzen du ataka, ostalariko ataka bat kontainerreko atakarekin mapatuz, zerbitzua Docker sarearen kanpotik atzigarri eginez.
+
+Docker sare bereko bi kontainerrek elkarren artean hitz egin dezakete beren barne-atakan **`-p` behar izan gabe**; `-p` Docker inguruneaz kanpo zerbitzu bat esposatzeko soilik behar da, adibidez zure nabigatzailera.
+
+### localhost kontainer baten barruan
+
+Akats oso ohikoa da kontainer baten barruko `localhost`-ek ostalarira edo beste kontainer batera seinalatzen duela suposatzea. Ez da horrela: kontainer baten barruko `localhost`-ek **kontainerrari berari** egiten dio erreferentzia, bere sare-interfaze isolatuari. Zure aplikazioak `localhost:5432`-ra konektatzen saiatzen bada, benetan beste kontainer batean exekutatzen den datu-base bat aurkitzea espero duelarik, konexioak huts egingo du. Konponbidea zerbitzuaren edo kontainerraren izena hostname gisa erabiltzea da (adibidez, `db`), Docker sarearen barne DNS-a baliatuz.
+
+## Docker Compose
+
+Aplikazio batek hainbat zerbitzu behar dituenean —zure app, datu-base bat, agian cache bat—, horiek banan-banan `docker run`-ekin kudeatzea nekagarria eta akatsen iturri bihurtzen da. **Docker Compose**-k hori konpontzen du: zerbitzu guztiak, beren erlazioak, aldagaiak, bolumenak eta sareak fitxategi deklaratibo bakarrean deskribatzen dituzu, eta Compose-k guztia modu koherentean sortzen du.
+
+```text
+Aplikazioa
+    ↓
+PostgreSQL
+```
+
+Egoera honetarako `compose.yaml` bat:
+
+```yaml
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgres://postgres:postgres@db:5432/appdb
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - appnet
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=appdb
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - appnet
+
+volumes:
+  db_data:
+
+networks:
+  appnet:
+```
+
+Fitxategi honi buruz aipagarriak diren puntuak, egungo Compose Specification-a jarraitzen duena (ez dago zertan `version:` gako zaharra deklaratu, zaharkituta baitago):
+
+- `depends_on`-ek `condition: service_healthy`-rekin `app`-ek `db` benetan prest egon arte itxaron dezan egiten du, abiarazita egon soilik ez. `healthcheck` gabe, `depends_on`-ek abio-ordena bermatzen du soilik, ez zerbitzuak jadanik konexioak onartzen dituela.
+- `db_data` Docker-ek kudeatutako bolumena da, goiko mailako `volumes` atalean deklaratua.
+- `appnet` Compose-k automatikoki sortutako sarea da, `app`-ek eta `db`-ek elkar izenez ebatzi ahal izateko.
+
+```bash
+docker compose up -d
+```
+
+Irudiak eraikitzen ditu (beharrezkoa bada), sarea eta bolumenak sortzen ditu, eta zerbitzuak atzeko planoan abiarazten ditu, mendekotasunen ordena errespetatuz.
+
+```bash
+docker compose down
+```
+
+Compose-k sortutako kontainerrak eta sarea gelditu eta ezabatzen ditu. Berez **ez** ditu bolumenak ezabatzen, hain zuzen ere nahigabe datuak ez galtzeko; horiek ere ezabatzeko, `docker compose down -v` erabiltzen da.
+
+## Ingurune-aldagaiak eta konfigurazioa
+
+Hainbat modu daude kontainer bati konfigurazioa emateko, bakoitzak bere lekuarekin:
+
+**`ENV` Dockerfile-an**: irudian "erreta" geratzen diren balio lehenetsiak finkatzen ditu. Gutxitan aldatzen den konfiguraziorako erabilgarria da (adibidez, `NODE_ENV=production`), baina irudia duen edonork ikus ditzake balio horiek.
+
+```dockerfile
+ENV PORT=3000
+```
+
+**`docker run -e`**: kontainerra abiaraztean aldagaiak gainidazten edo gehitzen ditu, irudia ukitu gabe.
+
+```bash
+docker run -e PORT=8080 mi-app:1.0
+```
+
+**`env_file`**: fitxategi batetik aldagaiak kargatzen ditu, asko direnean edo komandotik edo `compose.yaml`-tik kanpo mantendu nahi dituzunean erabilgarria.
+
+```yaml
+services:
+  app:
+    env_file:
+      - .env
+```
+
+**Aldagaiak Compose-n**: zuzenean `compose.yaml`-en defini daitezke, aurreko adibidean `environment:`-ekin bezala.
+
+### Zer ez litzatekeen irudi baten barruan egon behar
+
+Pasahitzak, API gakoak, tokenak eta ziurtagiri pribatuak **inoiz ez lirateke idatzi behar irudi baten barruan** (ez `ENV`-rekin, ez `.env` fitxategi bat `COPY`-rekin kopiatuz ere). Irudi bat registry batean amaitu daiteke, publikoa edo uste baino jende gehiagorekin partekatua, eta deskargatzen duen edonork bere geruzak azter ditzake eta balio horiek atera, geroagoko geruza batean "ezabatu" arren: aurreko geruzek irudian barrena jarraitzen dute. Sekretuak exekuzio-denboran txertatu behar dira (kanpotik pasatako ingurune-aldagaiak, sekretu-kudeatzaileak, Docker secrets bezalako mekanismoak), inoiz ez irudian finkatuta geratu.
+
+## Praktika onak
+
+**Irudi txikiak**: erabili oinarri-irudi txikituak (`alpine`, `slim`) zure stack-arekin bateragarriak direnean. Pisu gutxiagok deskarga eta hedapen azkarragoak esan nahi du, eta erasoetarako azalera txikiagoa.
+
+**Multi-stage builds**: fase batean eraikuntza-tresna guztiak erabiltzea ahalbidetzen dute eta amaierako fase minimo batean jadanik konpilatutako emaitza soilik kopiatzea. Horrela, amaierako irudiak ez dakartza konpilatzailerik ez garapen-mendekotasunik.
+
+```dockerfile
+FROM node:20-alpine AS build
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=build /app/dist ./dist
+COPY --from=build /app/node_modules ./node_modules
+CMD ["node", "dist/index.js"]
+```
+
+**`.dockerignore`**: build context-a murrizten du eta fitxategi sentikorrak edo beharrezkoak ez direnak nahigabe kopiatzea saihesten du.
+
+**Ez exekutatu root gisa posible denean**: berez, kontainer askok root gisa exekutatzen dute kontainerraren barruan, eta horrek inpaktua zabaltzen du norbaitek kode maltzurra exekutatzea lortzen badu. Oinarri-irudiak baimentzen duenean, erabili pribilegiorik gabeko erabiltzaile bat:
+
+```dockerfile
+USER node
+```
+
+**Sekretuen kudeaketa**: inoiz ez irudian; erabili exekuzio-denboran txertatutako ingurune-aldagaiak edo sekretu-kudeatzaile dedikatuak.
+
+**Healthcheck-ak**: definitu `HEALTHCHECK` bat Dockerfile-an edo `healthcheck` bat Compose-n, Docker-ek (eta zure kontainerrak orkestratzen dituen edozeinek) zerbitzua benetan funtzionatzen ari den jakin dezan, prozesua bizirik dagoen soilik ez.
+
+**Logak**: idatzi aplikazioaren logak irteera estandarrean (`stdout`/`stderr`), ez kontainerraren barruko fitxategietan. Horrela `docker logs`-ek automatikoki jasotzen ditu eta zentralizatzeko errazak dira.
+
+**Tag esplizituak**: saihestu `latest` produkzioan; finkatu bertsio zehatzak (`node:20.11-alpine`), hedapen bat erreproduzigarria izan dadin eta oharkabean alda ez dadin oinarri-irudia eguneratzen denean.
+
+**Mantendutako oinarri-irudiak**: erabili irudi ofizialak edo aktiboki mantenduak, eta eguneratu aldian-aldian segurtasun-adabakiak jasotzeko.
+
+**Erreproduzigarritasuna**: finkatu mendekotasunen bertsioak (`npm ci` `npm install` ordez, lockfileak) irudi bera modu koherentean berreraiki ahal izateko.
+
+**Mendekotasunen eguneraketa**: aldian-aldian berrikusi zure oinarri-irudi eta mendekotasunetako ahultasun ezagunak; irudiak eskaneatzeko tresnek laguntzen dute horiek hedatu aurretik detektatzen.
+
+## Ohiko akatsak
+
+### Irudia eta kontainerra nahastea
+
+Irudia txantiloi aldaezina da; kontainerra hortik sortutako instantzia da, exekutatzen edo geldituta. Irudi bat eta kontainerrik bat izan dezakezu, edo irudi bereko hainbat kontainer ezberdin exekutatzen. Exekutatzen ari den kontainer bat aldatzeak ez du aldatzen sortu zuen irudia.
+
+### Datuak galtzea
+
+Datu garrantzitsuak kontainer baten idazteko geruzan soilik gordetzen badituzu eta gero `docker rm`-rekin ezabatzen baduzu, datu horiek betiko galtzen dira. Konponbidea bolumenak erabiltzea da kontainerraren bizi-zikloa gainditu behar duen edozein daturako, bereziki datu-baseetarako.
+
+### localhost gaizki erabiltzea
+
+Sareei buruzko atalean azaldu bezala, kontainer baten barruko `localhost`-ek kontainerrari berari egiten dio erreferentzia, ez ostalariari ez beste kontainerrei. Erabili zerbitzuaren izena (Compose-n) edo kontainerraren izena (Docker sare batean) hostname gisa.
+
+### Atakak beharrik gabe argitaratzea
+
+Argitaratzen duzun `-p` bakoitzak ataka hori ostalarian esposatzen du, kanpotik atzigarri dagoena zabalduz. Bi zerbitzuk elkarren artean hitz egin behar dutenean soilik (adibidez, zure app-a eta bere datu-basea), ez argitaratu datu-basearen ataka ostalarian; nahikoa da biak Docker sare berean egotea.
+
+### Sekretuak irudien barruan gordetzea
+
+Lehen azaldu bezala, irudi batean sartutako edozein balio (geroago "ezabatutako" geruza batean izanda ere) bere geruzak aztertuz berreskura daiteke. Txertatu sekretuak exekuzio-denboran, inoiz ez eraikuntza-denboran.
+
+### Irudi handiegiak
+
+Normalean beharrik gabe osatuak diren oinarri-irudietatik dator, paketeen kudeatzaileen cacheak geruza berean garbitu ez izatetik, edo eraikuntza-urrats bat dagoenean multi-stage build-ak ez erabiltzetik. Geruza bakoitzaren tamaina `docker history`-rekin berrikusteak laguntzen du pisua non metatzen den identifikatzen.
+
+### Dockerfile eraginkorrak ez izatea
+
+Kode osoa mendekotasunak instalatu aurretik kopiatzeak cachea baliogabetzen du kode-aldaketa bakoitzean, mendekotasunak aldatu ez badira ere. Jarraibideak gutxien aldatzen denetik gehien aldatzen denera ordenatzeak (mendekotasunak lehenengo, kodea gero) askoz hobeto baliatzen du geruzen cachea.
+
+## Praktikako proiektu osoa
+
+Adibide oso bat eraikiko dugu: Express-eko Node.js API bat, PostgreSQL-era konektatzen dena.
+
+```text
+docker-example/
+├── Dockerfile
+├── compose.yaml
+├── .dockerignore
+└── src/
+    ├── index.js
+    └── package.json
+```
+
+**`src/package.json`**
+
+```json
+{
+  "name": "docker-example",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "express": "^4.19.2",
+    "pg": "^8.11.5"
+  }
+}
+```
+
+**`src/index.js`**
+
+```javascript
+import express from "express";
+import pg from "pg";
+
+const app = express();
+const port = process.env.PORT || 3000;
+
+const pool = new pg.Pool({
+  connectionString: process.env.DATABASE_URL,
+});
+
+app.get("/health", (req, res) => {
+  res.json({ status: "ok" });
+});
+
+app.get("/", async (req, res) => {
+  const result = await pool.query("SELECT NOW() AS now");
+  res.json({ message: "PostgreSQL-era konektatuta", now: result.rows[0].now });
+});
+
+app.listen(port, () => {
+  console.log(`Zerbitzaria ${port} atakan entzuten`);
+});
+```
+
+**`Dockerfile`**
+
+```dockerfile
+FROM node:20-alpine AS deps
+WORKDIR /app
+COPY src/package*.json ./
+RUN npm ci --omit=dev
+
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=deps /app/node_modules ./node_modules
+COPY src ./
+EXPOSE 3000
+USER node
+CMD ["node", "index.js"]
+```
+
+**`.dockerignore`**
+
+```text
+node_modules
+npm-debug.log
+.git
+.env
+Dockerfile
+compose.yaml
+```
+
+**`compose.yaml`**
+
+```yaml
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgres://postgres:postgres@db:5432/appdb
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - appnet
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=appdb
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - appnet
+
+volumes:
+  db_data:
+
+networks:
+  appnet:
+```
+
+### Urratsez urrats
+
+1. **Irudia eraiki**: ez duzu eskuz egin behar, `docker compose up`-ek behar dena eraikitzen baitu, baina bereizita ere egin dezakezu `docker compose build`-ekin.
+2. **Zerbitzuak abiarazi**: `docker compose up -d`-ek sarea eta bolumena sortzen ditu, `app` eraikitzen du, eta bi zerbitzuak abiarazten ditu, `db` osasuntsu egon arte itxaronez `app` abiarazi aurretik.
+3. **Kontainerrak egiaztatu**: `docker compose ps`-ek zerbitzu bakoitzaren egoera erakusten du, `db` `healthy` dagoen barne.
+4. **Aplikaziora sartu**: bisitatu `http://localhost:3000` eta PostgreSQL-en uneko orduarekiko konexio-mezua ikusi beharko zenuke; `http://localhost:3000/health`-ek app-aren egoerarekin erantzuten du.
+5. **Zerbitzuen arteko komunikazioa egiaztatu**: `/`-ek PostgreSQL-eko datuekin erantzuten duen egitateak berresten du `app`-ek `db` izenez ebatzi duela `appnet` sarearen bidez eta arrakastaz konektatu dela.
+6. **Datuak iraunarazi**: PostgreSQL-en datuak `db_data` bolumenean bizi dira. Zerbitzuak gelditu eta berriz abiarazten badituzu, datu-baseak bere edukia mantentzen du.
+7. **Zerbitzuak gelditu**: `docker compose down`-ek kontainerrak eta sarea gelditu eta ezabatzen ditu, baina `db_data` bolumena mantentzen du.
+8. **Berriz abiarazi**: `docker compose up -d`-ek berriz kontainerrak birsortzen ditu; bolumen bera berrerabiltzen duenez, PostgreSQL lehendik zeuden datuekin abiarazten da.
+
+## Funtsezko komandoak
+
+### Irudiak
+
+```bash
+docker images
+docker pull
+docker build
+docker rmi
+docker tag
+```
+
+- `docker images`-ek lokalki deskargatutako edo eraikitako irudiak zerrendatzen ditu.
+- `docker pull`-ek irudi bat deskargatzen du registry batetik.
+- `docker build`-ek irudi bat eraikitzen du Dockerfile batetik.
+- `docker rmi`-k irudi lokal bat ezabatzen du.
+- `docker tag`-ek dagoeneko dagoen irudi baterako alias (etiketa) gehigarri bat sortzen du, registry batera `push` egin aurretik erabilgarria.
+
+### Kontainerrak
+
+```bash
+docker run
+docker ps
+docker stop
+docker start
+docker restart
+docker logs
+docker exec
+docker inspect
+docker rm
+```
+
+- `docker run`-ek kontainer bat sortu eta abiarazten du irudi batetik.
+- `docker ps`-ek exekutatzen ari diren kontainerrak zerrendatzen ditu (`-a` geldituak ere ikusteko).
+- `docker stop` / `docker start` / `docker restart`-ek existitzen den kontainer bat gelditzen, abiarazten edo berrabiarazten dute.
+- `docker logs`-ek kontainerraren irteera estandarra erakusten du (`-f` denbora errealean jarraitzeko).
+- `docker exec`-ek jada abian den kontainer baten barruan komando bat exekutatzen du, adibidez `docker exec -it mi-app sh` shell bat irekitzeko.
+- `docker inspect`-ek kontainer edo irudi bati buruzko informazio zehatza erakusten du JSON formatuan.
+- `docker rm`-ek geldituta dagoen kontainer bat ezabatzen du.
+
+### Bolumenak
+
+```bash
+docker volume ls
+docker volume create
+docker volume inspect
+docker volume rm
+```
+
+### Sareak
+
+```bash
+docker network ls
+docker network create
+docker network inspect
+docker network rm
+```
+
+### Docker Compose
+
+```bash
+docker compose up
+docker compose down
+docker compose ps
+docker compose logs
+docker compose exec
+```
+
+- `docker compose up`-ek definitutako zerbitzu guztiak sortu eta abiarazten ditu (`-d` atzeko planorako).
+- `docker compose down`-ek Compose-k sortutako baliabideak gelditu eta ezabatzen ditu.
+- `docker compose ps`-ek proiektuko zerbitzuen egoera zerrendatzen du.
+- `docker compose logs`-ek zerbitzu guztien log konbinatuak erakusten ditu (`-f` jarraitzeko).
+- `docker compose exec`-ek abian den zerbitzu baten barruan komando bat exekutatzen du, adibidez `docker compose exec db psql -U postgres`.
+
+## Erreferentziak
+
+- [Docker Docs](https://docs.docker.com/)
+- [Dockerfile reference](https://docs.docker.com/reference/dockerfile/)
+- [Docker Compose Specification](https://docs.docker.com/compose/compose-file/)
+- [Docker Engine](https://docs.docker.com/engine/)
+- [Docker Hub](https://hub.docker.com/)

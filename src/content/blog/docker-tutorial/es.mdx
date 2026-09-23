@@ -1,22 +1,673 @@
 ---
-title: "Docker A Fondo"
+title: "Docker: guía práctica para desarrolladores"
 description: "Una introducción a Docker para entender qué problema resuelve y cómo funciona."
-pubDate: "2026-09-13"
+pubDate: "2026-09-23"
 heroImage: "/src/assets/docker-tutorial.png"
 slug: "docker-a-fondo"
-translationKey: "docker-a-fondo"
+translationKey: "mastering-docker"
 lang: "es"
 categories: ["devops", "tools"]
 ---
 
-# Entendiendo Docker
+## Introducción
 
-Docker es una plataforma para desarrollar, enviar y ejecutar aplicaciones en contenedores.
+Si alguna vez has escuchado la frase "en mi máquina funciona", sabes el problema que Docker vino a resolver. Un proyecto puede funcionar perfectamente en tu portátil y fallar en el servidor de un compañero, o peor, en producción, simplemente porque las versiones de las dependencias, del sistema operativo o de las librerías no coinciden.
 
-Pero antes de aprender comandos, merece la pena entender qué problema intenta resolver.
+Docker es una plataforma que permite empaquetar una aplicación junto con todo lo que necesita para ejecutarse —código, dependencias, configuración, binarios del sistema— en una unidad autónoma llamada **contenedor**. Ese contenedor se comporta igual en tu portátil, en un servidor de pruebas o en la nube, porque no depende del entorno que lo rodea: lleva su propio entorno consigo.
 
-## ¿Qué problema resuelve Docker?
+El problema que resuelve no es solo técnico, también es de flujo de trabajo. Con Docker:
 
-Cuando trabajamos en un proyecto, nuestros archivos cambian constantemente.
+- Dejas de depender de instrucciones de instalación que "funcionan a veces".
+- Puedes levantar un entorno completo (aplicación, base de datos, caché) con un solo comando.
+- Reduces la fricción entre desarrollo, pruebas y producción.
+- Facilitas que cualquier persona del equipo, con cualquier sistema operativo, tenga el mismo entorno.
 
-Docker nos permite crear entornos aislados y reproducibles para nuestras aplicaciones.
+Al terminar esta guía entenderás qué es un contenedor y en qué se diferencia de una máquina virtual, cómo construir tus propias imágenes con un Dockerfile, cómo ejecutar y gestionar contenedores, cómo persistir datos con volúmenes, cómo conectar varios servicios con redes y Docker Compose, y qué buenas prácticas y errores evitar en el día a día.
+
+## ¿Qué es Docker?
+
+Docker es, en esencia, una forma de **virtualizar a nivel de sistema operativo** en lugar de a nivel de hardware. Para entender por qué eso importa, conviene comparar tres formas de ejecutar una aplicación:
+
+**Aplicación tradicional (instalación directa)**: el software se instala directamente sobre el sistema operativo del servidor. Comparte librerías, versiones de lenguajes y configuración con todo lo demás que corre en esa máquina. Si otra aplicación necesita una versión distinta de la misma dependencia, hay conflicto.
+
+**Máquina virtual**: un hipervisor simula hardware completo (CPU, memoria, disco) para que cada máquina virtual ejecute su propio sistema operativo, con su propio kernel, de forma totalmente aislada. Es muy robusto, pero cada máquina virtual pesa gigabytes y tarda minutos en arrancar, porque arranca un sistema operativo entero.
+
+**Contenedor**: en lugar de virtualizar hardware, Docker aísla procesos dentro del mismo kernel del sistema operativo anfitrión, usando mecanismos del propio Linux (namespaces y cgroups) para que cada contenedor tenga su propia vista de procesos, red y sistema de archivos, sin necesidad de arrancar un kernel nuevo.
+
+```text
+Máquina virtual                Contenedor
+┌─────────────┐                ┌──────────────┐
+│ App A       │                │ App A        │
+│ Librerías   │                │ Librerías    │
+│ SO invitado │                ├──────────────┤
+├─────────────┤                │ App B        │
+│ Hipervisor  │                │ Librerías    │
+├─────────────┤                ├──────────────┤
+│ SO anfitrión│                │ Docker Engine│
+├─────────────┤                ├──────────────┤
+│ Hardware    │                │ SO anfitrión │
+└─────────────┘                ├──────────────┤
+                               │ Hardware     │
+                               └──────────────┘
+```
+
+Esto explica por qué los contenedores son mucho más ligeros: no cargan un sistema operativo completo, solo los archivos y procesos que la aplicación necesita. Arrancan en milisegundos o segundos, no en minutos, y una imagen puede pesar unos pocos megabytes en lugar de varios gigabytes.
+
+Es importante no confundir "ligero" con "menos aislado que nada": los contenedores sí están aislados entre sí (cada uno ve su propio sistema de archivos y sus propios procesos), pero comparten el kernel del sistema anfitrión, lo cual es precisamente lo que los hace tan rápidos de arrancar.
+
+## Conceptos fundamentales
+
+**Docker Engine** es el software que gestiona todo: construye imágenes, crea y ejecuta contenedores, gestiona redes y volúmenes. Tiene un demonio (`dockerd`) que corre en segundo plano y un cliente (`docker`) con el que interactúas desde la terminal.
+
+**Imagen**: es una plantilla inmutable de solo lectura que contiene el sistema de archivos, las dependencias y la configuración necesarios para ejecutar una aplicación. Una imagen no se ejecuta por sí sola; es el "molde" a partir del cual se crean contenedores. Las imágenes se construyen por capas, y cada capa representa un cambio respecto a la anterior (instalar una dependencia, copiar un archivo, etc.).
+
+**Contenedor**: es una instancia en ejecución de una imagen. Cuando ejecutas una imagen, Docker añade una capa de escritura encima de las capas de solo lectura de la imagen, y ahí es donde vive todo lo que el contenedor escribe mientras corre. Puedes crear muchos contenedores a partir de la misma imagen, cada uno aislado del resto.
+
+**Dockerfile**: es un archivo de texto con instrucciones paso a paso que describen cómo construir una imagen: qué imagen base usar, qué archivos copiar, qué comandos ejecutar, qué puerto exponer, qué comando arrancar al final.
+
+**Registry**: es un servidor que almacena y distribuye imágenes. Cuando haces `docker pull` o `docker push`, estás hablando con un registry.
+
+**Docker Hub**: es el registry público más usado, mantenido por Docker Inc. Ahí están las imágenes oficiales de lenguajes y bases de datos (`node`, `python`, `postgres`, `nginx`...) y también imágenes publicadas por la comunidad. Puedes usar registries privados (propios, de GitHub, de proveedores cloud) igual que usas Docker Hub.
+
+**Volumen**: es un mecanismo de persistencia de datos gestionado por Docker, que existe fuera del ciclo de vida de un contenedor concreto. Aunque borres el contenedor, los datos del volumen permanecen.
+
+**Red**: los contenedores, por defecto, están aislados de red. Docker permite crear redes virtuales para que unos contenedores se comuniquen con otros por nombre, sin exponer nada al exterior si no se desea.
+
+## Primer contenedor
+
+Vamos a ejecutar tu primer contenedor usando una imagen oficial sencilla, `nginx`, un servidor web muy ligero.
+
+```bash
+docker pull nginx:alpine
+```
+
+Este comando descarga la imagen `nginx` con la etiqueta `alpine` (una variante basada en Alpine Linux, muy reducida) desde Docker Hub. Docker descarga cada capa de la imagen que aún no tengas en tu máquina; si ya la tienes, no vuelve a descargarla.
+
+```bash
+docker run -d --name mi-nginx -p 8080:80 nginx:alpine
+```
+
+Aquí ocurren varias cosas:
+
+- `-d` ejecuta el contenedor en segundo plano (_detached_), sin bloquear tu terminal.
+- `--name mi-nginx` le da un nombre legible, en lugar de un identificador aleatorio.
+- `-p 8080:80` publica el puerto 80 del contenedor (donde escucha nginx) en el puerto 8080 de tu máquina.
+- `nginx:alpine` es la imagen a partir de la cual se crea el contenedor.
+
+Si ahora visitas `http://localhost:8080` verás la página de bienvenida de nginx, sirviéndose desde dentro del contenedor.
+
+```bash
+docker ps
+```
+
+Lista los contenedores en ejecución: identificador, imagen, comando, tiempo activo, puertos y nombre. Internamente, Docker Engine mantiene un proceso aislado con su propio espacio de red y sistema de archivos, y traduce el tráfico del puerto publicado hacia el puerto interno del contenedor.
+
+```bash
+docker stop mi-nginx
+```
+
+Envía una señal de apagado ordenado al proceso principal del contenedor y espera a que termine. El contenedor deja de ejecutarse pero no desaparece: sigue existiendo con su capa de escritura intacta, solo que detenido.
+
+```bash
+docker rm mi-nginx
+```
+
+Elimina definitivamente el contenedor (debe estar detenido). Esto borra su capa de escritura; cualquier dato que no estuviera en un volumen se pierde. La imagen `nginx:alpine`, en cambio, sigue en tu máquina, lista para crear otro contenedor.
+
+## Dockerfile
+
+Un Dockerfile te permite construir tu propia imagen, a partir de una imagen base, añadiendo tu código y configuración. Vamos a ver un ejemplo funcional para una aplicación Node.js sencilla:
+
+```dockerfile
+FROM node:20-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --omit=dev
+COPY src ./src
+ENV NODE_ENV=production
+EXPOSE 3000
+CMD ["node", "src/index.js"]
+```
+
+Instrucción por instrucción:
+
+- `FROM node:20-alpine` establece la imagen base: Node.js 20 sobre Alpine Linux, una distribución muy pequeña. Toda imagen empieza con un `FROM`.
+- `WORKDIR /app` fija el directorio de trabajo dentro del contenedor. Si no existe, Docker lo crea. Todas las instrucciones siguientes (`COPY`, `RUN`, `CMD`) se ejecutan relativas a esta ruta.
+- `COPY package*.json ./` copia únicamente los ficheros de dependencias primero, no todo el código. Esto es intencional, y lo veremos en la siguiente sección al hablar de cache.
+- `RUN npm ci --omit=dev` ejecuta un comando durante la construcción de la imagen, instalando las dependencias de producción. Cada `RUN` genera una nueva capa.
+- `COPY src ./src` copia el código de la aplicación.
+- `ENV NODE_ENV=production` define una variable de entorno que estará disponible dentro del contenedor en tiempo de ejecución.
+- `EXPOSE 3000` documenta que la aplicación escucha en el puerto 3000. Es informativo: no publica el puerto por sí solo, eso lo hace `-p` en `docker run`.
+- `CMD ["node", "src/index.js"]` define el comando que se ejecuta cuando arranca el contenedor.
+
+### CMD vs ENTRYPOINT
+
+Es una de las confusiones más habituales. Ambas instrucciones definen qué se ejecuta al arrancar el contenedor, pero con matices distintos:
+
+- `CMD` define el comando **por defecto**, que puede sobrescribirse fácilmente pasando otro comando al final de `docker run`. Por ejemplo, `docker run mi-imagen bash` ignora el `CMD` del Dockerfile y ejecuta `bash` en su lugar.
+- `ENTRYPOINT` define el proceso **principal**, que no se sobrescribe con argumentos adicionales de `docker run`; esos argumentos se añaden como parámetros al `ENTRYPOINT`.
+
+La combinación más común es usar `ENTRYPOINT` para el ejecutable fijo y `CMD` para los argumentos por defecto que sí se pueden cambiar:
+
+```dockerfile
+ENTRYPOINT ["node"]
+CMD ["src/index.js"]
+```
+
+Con esto, `docker run mi-imagen` ejecuta `node src/index.js`, pero `docker run mi-imagen src/debug.js` ejecuta `node src/debug.js`, sin tener que reescribir el binario cada vez.
+
+## Construcción de imágenes
+
+```bash
+docker build -t mi-app:1.0 .
+```
+
+- `-t mi-app:1.0` asigna un **tag** (nombre:versión) a la imagen resultante. Si no pones tag, Docker usa `latest`, que no significa "la versión más reciente y buena" sino simplemente "la etiqueta por defecto"; en producción conviene evitarlo y usar versiones explícitas.
+- `.` es el **build context**: la carpeta cuyo contenido se envía al demonio de Docker para que pueda copiar archivos con `COPY` o `ADD`. Cuanto más grande sea esa carpeta, más lenta la construcción, por eso conviene excluir lo que no se necesita.
+
+### .dockerignore
+
+Funciona igual que un `.gitignore`, pero para el build context:
+
+```text
+node_modules
+npm-debug.log
+.git
+.env
+Dockerfile
+compose.yaml
+```
+
+Excluir `node_modules` evita enviar dependencias que de todas formas se van a reinstalar dentro de la imagen; excluir `.env` evita filtrar secretos por accidente.
+
+### Capas y cache
+
+Cada instrucción del Dockerfile genera una capa, y Docker guarda en cache el resultado de cada capa. Si en una nueva construcción una instrucción y todo lo anterior a ella no han cambiado, Docker reutiliza la capa cacheada en lugar de volver a ejecutarla.
+
+Por eso en el Dockerfile anterior copiamos primero `package*.json` y ejecutamos `npm ci` **antes** de copiar el resto del código: si solo cambias un archivo fuente pero no las dependencias, Docker puede reutilizar la capa de `npm ci` (que suele ser la más lenta) y solo repetir el `COPY src` y lo que venga después.
+
+```text
+FROM node:20-alpine        ← capa cacheada
+WORKDIR /app                ← capa cacheada
+COPY package*.json ./       ← capa cacheada (si package.json no cambió)
+RUN npm ci --omit=dev       ← capa cacheada (reutiliza instalación)
+COPY src ./src               ← se reconstruye (el código cambió)
+```
+
+Esto hace las construcciones mucho más rápidas y, si el resultado de cada capa es determinista, más reproducibles.
+
+## Ejecutar y gestionar contenedores
+
+Algunas de las opciones más usadas de `docker run`:
+
+```bash
+docker run -d \
+  --name mi-app \
+  -p 3000:3000 \
+  -e NODE_ENV=production \
+  -e DATABASE_URL=postgres://user:pass@db:5432/appdb \
+  -v app_logs:/app/logs \
+  mi-app:1.0
+```
+
+- `-p 3000:3000` publica el puerto: `puerto_host:puerto_contenedor`.
+- `-e` define una variable de entorno dentro del contenedor; puedes repetirlo tantas veces como necesites.
+- `-v app_logs:/app/logs` monta el volumen `app_logs` en la ruta `/app/logs` dentro del contenedor.
+- `--name` da un nombre estable al contenedor, útil para referenciarlo en otros comandos.
+
+Para trabajar de forma interactiva, por ejemplo para depurar:
+
+```bash
+docker run -it --rm mi-app:1.0 sh
+```
+
+`-it` combina modo interactivo (`-i`) con una terminal (`-t`), y `--rm` elimina el contenedor automáticamente al salir, útil para pruebas puntuales que no quieres que dejen basura.
+
+Para ejecutar en segundo plano sin bloquear la terminal, usas `-d` (_detached_), como ya viste con nginx; para ver los logs de un contenedor en detached, usa `docker logs -f mi-app`.
+
+## Persistencia de datos
+
+Por defecto, todo lo que un contenedor escribe vive en su capa de escritura, que desaparece cuando el contenedor se elimina. Para persistir datos de verdad existen dos mecanismos:
+
+**Volúmenes (`docker volume`)**: gestionados completamente por Docker. Viven en una zona del sistema de archivos del host que Docker administra (no necesitas conocer la ruta exacta), y son la forma recomendada de persistir datos de aplicaciones, sobre todo bases de datos.
+
+```bash
+docker volume create db_data
+docker run -d --name db -v db_data:/var/lib/postgresql/data postgres:16-alpine
+```
+
+**Bind mounts**: montan una ruta concreta de tu sistema de archivos dentro del contenedor. Tú controlas exactamente dónde están los datos.
+
+```bash
+docker run -d --name mi-app -v $(pwd)/src:/app/src mi-app:1.0
+```
+
+### Cuándo usar cada uno
+
+Usa **volúmenes** cuando quieras que Docker gestione la persistencia (bases de datos, colas, cualquier dato que la aplicación necesite mantener entre reinicios) sin depender de la estructura de carpetas de tu máquina.
+
+Usa **bind mounts** cuando necesites ver o editar archivos concretos del host desde el contenedor, típicamente en desarrollo: montar tu código fuente para que los cambios se reflejen sin reconstruir la imagen.
+
+La diferencia clave es quién controla la ubicación de los datos: con volúmenes, Docker; con bind mounts, tú.
+
+## Redes
+
+Por defecto, Docker crea una red _bridge_ donde los contenedores pueden hablar entre sí si están en la misma red, resolviendo nombres de contenedor como si fueran nombres de host, gracias a un **DNS interno** que Docker gestiona automáticamente.
+
+```bash
+docker network create appnet
+docker run -d --name db --network appnet postgres:16-alpine
+docker run -d --name app --network appnet mi-app:1.0
+```
+
+Dentro de `app`, puedes conectarte a la base de datos usando `db` como si fuera un hostname; Docker resuelve ese nombre a la IP interna del contenedor `db` en esa red.
+
+### EXPOSE vs -p
+
+Esto genera muchas dudas:
+
+```dockerfile
+EXPOSE 3000
+```
+
+es solo documentación e intención: indica que la aplicación dentro del contenedor escucha en el puerto 3000, y sirve como señal para otras herramientas (incluido Compose), pero **no publica nada al exterior por sí solo**.
+
+```bash
+-p 3000:3000
+```
+
+en `docker run` sí publica realmente el puerto, mapeando un puerto del host al puerto del contenedor, haciendo que el servicio sea accesible desde fuera de la red de Docker.
+
+Dos contenedores en la misma red Docker pueden comunicarse entre sí por su puerto interno **sin necesidad de `-p`**; `-p` solo es necesario para exponer un servicio fuera del entorno Docker, por ejemplo a tu navegador.
+
+### localhost dentro de un contenedor
+
+Un error muy común es asumir que `localhost` dentro de un contenedor apunta al host o a otro contenedor. No es así: `localhost` dentro de un contenedor se refiere **al propio contenedor**, a su propia interfaz de red aislada. Si tu aplicación intenta conectarse a `localhost:5432` esperando encontrar una base de datos que en realidad corre en otro contenedor, la conexión fallará. La solución es usar el nombre del servicio o del contenedor como hostname (por ejemplo, `db`), aprovechando el DNS interno de la red de Docker.
+
+## Docker Compose
+
+Cuando una aplicación necesita varios servicios —tu app, una base de datos, quizás una caché—, gestionarlos uno a uno con `docker run` se vuelve tedioso y propenso a errores. **Docker Compose** resuelve esto: describes todos los servicios, sus relaciones, variables, volúmenes y redes en un único archivo declarativo, y Compose se encarga de crearlo todo coherentemente.
+
+```text
+Aplicación
+    ↓
+PostgreSQL
+```
+
+Un `compose.yaml` para este escenario:
+
+```yaml
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgres://postgres:postgres@db:5432/appdb
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - appnet
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=appdb
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - appnet
+
+volumes:
+  db_data:
+
+networks:
+  appnet:
+```
+
+Puntos destacables de este archivo, que sigue la Compose Specification actual (no hace falta declarar la antigua clave `version:`, que está obsoleta):
+
+- `depends_on` con `condition: service_healthy` hace que `app` espere a que `db` esté realmente lista, no solo arrancada. Sin `healthcheck`, `depends_on` solo garantiza orden de arranque, no que el servicio ya acepte conexiones.
+- `db_data` es un volumen gestionado por Docker, declarado en la sección `volumes` de nivel superior.
+- `appnet` es una red creada automáticamente por Compose para que `app` y `db` se resuelvan por nombre entre sí.
+
+```bash
+docker compose up -d
+```
+
+Construye (si hace falta) las imágenes, crea la red y los volúmenes, y arranca los servicios en segundo plano, respetando el orden de dependencias.
+
+```bash
+docker compose down
+```
+
+Detiene y elimina los contenedores y la red creados por Compose. Por defecto **no** elimina los volúmenes, precisamente para no perder datos por accidente; para borrarlos también, se usa `docker compose down -v`.
+
+## Variables de entorno y configuración
+
+Hay varias formas de dar configuración a un contenedor, cada una con su lugar:
+
+**`ENV` en el Dockerfile**: fija valores por defecto que quedan "horneados" en la imagen. Útil para configuración que rara vez cambia (por ejemplo, `NODE_ENV=production`), pero cualquiera que tenga la imagen puede ver esos valores.
+
+```dockerfile
+ENV PORT=3000
+```
+
+**`docker run -e`**: sobrescribe o añade variables en el momento de arrancar el contenedor, sin tocar la imagen.
+
+```bash
+docker run -e PORT=8080 mi-app:1.0
+```
+
+**`env_file`**: carga variables desde un archivo, útil cuando hay muchas o cuando quieres mantenerlas fuera del comando o del `compose.yaml`.
+
+```yaml
+services:
+  app:
+    env_file:
+      - .env
+```
+
+**Variables en Compose**: se pueden definir directamente en el `compose.yaml`, como en el ejemplo anterior con `environment:`.
+
+### Qué no debe ir dentro de una imagen
+
+Contraseñas, claves de API, tokens y certificados privados **nunca deberían escribirse dentro de una imagen** (ni con `ENV`, ni copiando un archivo `.env` con `COPY`). Una imagen puede acabar en un registry, público o compartido con más gente de la que crees, y cualquiera que la descargue puede inspeccionar sus capas y extraer esos valores, incluso si los "borras" en una capa posterior: las capas anteriores siguen existiendo dentro de la imagen. Los secretos deben inyectarse en tiempo de ejecución (variables de entorno pasadas por fuera, gestores de secretos, mecanismos como Docker secrets), nunca quedar fijados en la imagen.
+
+## Buenas prácticas
+
+**Imágenes pequeñas**: usa imágenes base reducidas (`alpine`, `slim`) cuando sea compatible con tu stack. Menos peso significa descargas y despliegues más rápidos, y menos superficie de ataque.
+
+**Multi-stage builds**: permiten usar una etapa con todas las herramientas de compilación y otra final, mínima, que solo copia el resultado ya compilado. Así la imagen final no arrastra compiladores ni dependencias de desarrollo.
+
+```dockerfile
+FROM node:20-alpine AS build
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=build /app/dist ./dist
+COPY --from=build /app/node_modules ./node_modules
+CMD ["node", "dist/index.js"]
+```
+
+**`.dockerignore`**: reduce el build context y evita copiar archivos sensibles o innecesarios por accidente.
+
+**No ejecutar como root cuando sea posible**: por defecto, muchos contenedores corren como root dentro del contenedor, lo que amplía el impacto si alguien logra ejecutar código malicioso. Cuando la imagen base lo permite, usa un usuario sin privilegios:
+
+```dockerfile
+USER node
+```
+
+**Gestión de secretos**: nunca en la imagen; usa variables de entorno inyectadas en tiempo de ejecución o gestores de secretos dedicados.
+
+**Healthchecks**: define un `HEALTHCHECK` en el Dockerfile o `healthcheck` en Compose para que Docker (y quien orqueste tus contenedores) sepa si el servicio realmente funciona, no solo si el proceso sigue vivo.
+
+**Logs**: escribe los logs de la aplicación a la salida estándar (`stdout`/`stderr`) en lugar de a ficheros dentro del contenedor. Así `docker logs` los captura automáticamente y son fáciles de centralizar.
+
+**Tags explícitos**: evita `latest` en producción; fija versiones concretas (`node:20.11-alpine`) para que un despliegue sea reproducible y no cambie por sorpresa cuando la imagen base se actualiza.
+
+**Imágenes base mantenidas**: usa imágenes oficiales o mantenidas activamente, y actualízalas con regularidad para recibir parches de seguridad.
+
+**Reproducibilidad**: fija versiones de dependencias (`npm ci` en vez de `npm install`, lockfiles) para que la misma imagen se pueda reconstruir de forma consistente.
+
+**Actualización de dependencias**: revisa periódicamente vulnerabilidades conocidas en tus imágenes base y dependencias; herramientas de escaneo de imágenes te ayudan a detectarlas antes de desplegar.
+
+## Errores frecuentes
+
+### Confundir imagen y contenedor
+
+La imagen es la plantilla inmutable; el contenedor es una instancia en ejecución (o detenida) creada a partir de ella. Puedes tener una imagen y ningún contenedor, o varios contenedores distintos corriendo desde la misma imagen. Modificar un contenedor en marcha no modifica la imagen de la que partió.
+
+### Perder datos
+
+Si guardas datos importantes solo en la capa de escritura de un contenedor y luego lo eliminas con `docker rm`, esos datos se pierden para siempre. La solución es usar volúmenes para cualquier dato que deba sobrevivir al ciclo de vida del contenedor, especialmente bases de datos.
+
+### Utilizar localhost incorrectamente
+
+Como se explicó en la sección de redes, `localhost` dentro de un contenedor apunta al propio contenedor, no al host ni a otros contenedores. Usa el nombre del servicio (en Compose) o del contenedor (en una red Docker) como hostname.
+
+### Publicar puertos innecesariamente
+
+Cada `-p` que publicas expone ese puerto en el host, ampliando la superficie accesible desde fuera. Si dos servicios solo necesitan hablar entre sí (por ejemplo, tu app y su base de datos), no publiques el puerto de la base de datos al host; basta con que ambos estén en la misma red Docker.
+
+### Guardar secretos dentro de imágenes
+
+Como se explicó antes, cualquier valor incluido en una imagen (incluso en una capa posteriormente "borrada") puede recuperarse inspeccionando sus capas. Inyecta secretos en tiempo de ejecución, nunca en tiempo de construcción.
+
+### Imágenes demasiado grandes
+
+Suele deberse a imágenes base innecesariamente completas, a no limpiar cachés de gestores de paquetes dentro de la misma capa, o a no usar multi-stage builds cuando hay un paso de compilación. Revisar el tamaño de cada capa con `docker history` ayuda a identificar dónde se acumula el peso.
+
+### Dockerfiles poco eficientes
+
+Copiar todo el código antes de instalar dependencias invalida la cache en cada cambio de código, aunque las dependencias no hayan cambiado. Ordenar las instrucciones de menos a más cambiantes (dependencias primero, código después) aprovecha mucho mejor la cache de capas.
+
+## Proyecto práctico completo
+
+Vamos a construir un ejemplo completo: una API Node.js con Express que se conecta a PostgreSQL.
+
+```text
+docker-example/
+├── Dockerfile
+├── compose.yaml
+├── .dockerignore
+└── src/
+    ├── index.js
+    └── package.json
+```
+
+**`src/package.json`**
+
+```json
+{
+  "name": "docker-example",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "express": "^4.19.2",
+    "pg": "^8.11.5"
+  }
+}
+```
+
+**`src/index.js`**
+
+```javascript
+import express from "express";
+import pg from "pg";
+
+const app = express();
+const port = process.env.PORT || 3000;
+
+const pool = new pg.Pool({
+  connectionString: process.env.DATABASE_URL,
+});
+
+app.get("/health", (req, res) => {
+  res.json({ status: "ok" });
+});
+
+app.get("/", async (req, res) => {
+  const result = await pool.query("SELECT NOW() AS now");
+  res.json({ message: "Conectado a PostgreSQL", now: result.rows[0].now });
+});
+
+app.listen(port, () => {
+  console.log(`Servidor escuchando en el puerto ${port}`);
+});
+```
+
+**`Dockerfile`**
+
+```dockerfile
+FROM node:20-alpine AS deps
+WORKDIR /app
+COPY src/package*.json ./
+RUN npm ci --omit=dev
+
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=deps /app/node_modules ./node_modules
+COPY src ./
+EXPOSE 3000
+USER node
+CMD ["node", "index.js"]
+```
+
+**`.dockerignore`**
+
+```text
+node_modules
+npm-debug.log
+.git
+.env
+Dockerfile
+compose.yaml
+```
+
+**`compose.yaml`**
+
+```yaml
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgres://postgres:postgres@db:5432/appdb
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - appnet
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=appdb
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - appnet
+
+volumes:
+  db_data:
+
+networks:
+  appnet:
+```
+
+### Paso a paso
+
+1. **Construir la imagen**: no hace falta hacerlo manualmente, `docker compose up` construye lo que haga falta, pero también puedes hacerlo por separado con `docker compose build`.
+2. **Levantar los servicios**: `docker compose up -d` crea la red, el volumen, construye `app` y arranca ambos servicios, esperando a que `db` esté saludable antes de arrancar `app`.
+3. **Comprobar los contenedores**: `docker compose ps` muestra el estado de cada servicio, incluido si `db` está `healthy`.
+4. **Acceder a la aplicación**: visita `http://localhost:3000` y deberías ver el mensaje de conexión con la hora actual de PostgreSQL; `http://localhost:3000/health` responde con el estado de la propia app.
+5. **Comprobar la comunicación entre servicios**: el hecho de que `/` responda con datos de PostgreSQL confirma que `app` ha resuelto `db` por nombre a través de la red `appnet` y se ha conectado correctamente.
+6. **Persistir datos**: los datos de PostgreSQL viven en el volumen `db_data`. Si detienes y vuelves a levantar los servicios, la base de datos conserva su contenido.
+7. **Detener los servicios**: `docker compose down` detiene y elimina los contenedores y la red, pero conserva el volumen `db_data`.
+8. **Volver a levantarlos**: `docker compose up -d` de nuevo recrea los contenedores; al reutilizar el mismo volumen, PostgreSQL arranca con los datos que ya existían.
+
+## Comandos esenciales
+
+### Imágenes
+
+```bash
+docker images
+docker pull
+docker build
+docker rmi
+docker tag
+```
+
+- `docker images` lista las imágenes descargadas o construidas localmente.
+- `docker pull` descarga una imagen desde un registry.
+- `docker build` construye una imagen a partir de un Dockerfile.
+- `docker rmi` elimina una imagen local.
+- `docker tag` crea un alias (etiqueta) adicional para una imagen existente, útil antes de hacer `push` a un registry.
+
+### Contenedores
+
+```bash
+docker run
+docker ps
+docker stop
+docker start
+docker restart
+docker logs
+docker exec
+docker inspect
+docker rm
+```
+
+- `docker run` crea y arranca un contenedor a partir de una imagen.
+- `docker ps` lista contenedores en ejecución (`-a` para ver también los detenidos).
+- `docker stop` / `docker start` / `docker restart` detienen, arrancan o reinician un contenedor existente.
+- `docker logs` muestra la salida estándar del contenedor (`-f` para seguirla en tiempo real).
+- `docker exec` ejecuta un comando dentro de un contenedor ya en marcha, por ejemplo `docker exec -it mi-app sh` para abrir una shell.
+- `docker inspect` muestra información detallada en JSON sobre un contenedor o imagen.
+- `docker rm` elimina un contenedor detenido.
+
+### Volúmenes
+
+```bash
+docker volume ls
+docker volume create
+docker volume inspect
+docker volume rm
+```
+
+### Redes
+
+```bash
+docker network ls
+docker network create
+docker network inspect
+docker network rm
+```
+
+### Docker Compose
+
+```bash
+docker compose up
+docker compose down
+docker compose ps
+docker compose logs
+docker compose exec
+```
+
+- `docker compose up` crea y arranca todos los servicios definidos (`-d` para segundo plano).
+- `docker compose down` detiene y elimina los recursos creados por Compose.
+- `docker compose ps` lista el estado de los servicios del proyecto.
+- `docker compose logs` muestra los logs combinados de todos los servicios (`-f` para seguirlos).
+- `docker compose exec` ejecuta un comando dentro de un servicio en marcha, por ejemplo `docker compose exec db psql -U postgres`.
+
+## Referencias
+
+- [Docker Docs](https://docs.docker.com/)
+- [Dockerfile reference](https://docs.docker.com/reference/dockerfile/)
+- [Docker Compose Specification](https://docs.docker.com/compose/compose-file/)
+- [Docker Engine](https://docs.docker.com/engine/)
+- [Docker Hub](https://hub.docker.com/)
