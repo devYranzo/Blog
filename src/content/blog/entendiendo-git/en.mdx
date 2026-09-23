@@ -9,25 +9,843 @@ lang: "en"
 categories: ["development", "tools"]
 ---
 
-# Understanding Git
+## Introduction
 
-Git is a version control system.
+Git is the version control system that practically all modern software development relies on, whether in personal projects, small teams, or organizations with thousands of contributors. It was created in 2005 by Linus Torvalds to manage development of the Linux kernel, after the tools available at the time turned out to be too slow and limited for a project with so many contributors spread around the world.
 
-But before learning commands, it is worth understanding what problem Git is trying to solve.
+The problem Git solves is easy to state: when several people work on the same code over time, someone needs to keep track of what changed, when, who did it, and why, while also allowing different lines of work to move forward in parallel without stepping on each other. Without a tool like this, the usual outcome is folders named `project_final_v2_definitive`, changes accidentally overwritten, and no way to go back when something breaks.
 
-## What problem does Git solve?
+What sets Git apart from the centralized version control systems that came before it (like Subversion or CVS) is that **it's distributed**: everyone who clones a repository gets a full copy of the entire history, not just the current files. This means you can commit, browse the full history, and work with branches offline; you only need network access when you want to sync your work with other people.
 
-When we work on a project, our files are constantly changing.
+By the end of this guide you'll understand what a repository, a commit, a branch, and `HEAD` are; you'll know how to create repositories, make commits, browse history, work with and merge branches, resolve conflicts, use `rebase` responsibly, sync with remote repositories, safely undo changes, and use tools like `stash`, `tags`, and `reflog` in your daily work.
 
-Git allows us to keep and inspect the history of those changes.
+## What is Git?
+
+A version control system is, at its core, a tool that keeps the history of changes to a set of files, letting you browse previous versions, compare changes, and coordinate the work of several people on the same files.
+
+**No version control**: every important change is saved as a manual copy of the folder, or the previous file is simply overwritten. There's no reliable way to know what changed between one version and another, or to go back without losing later work.
+
+**Centralized version control**: a single server holds the full history, and everyone works on a copy of the current version. To browse the history or perform almost any meaningful operation, you need a connection to that server. If the server goes down, no one can work with the history.
+
+**Git**: every local copy of the repository contains the full history, not just the current files. You can commit, create branches, browse history, and undo changes without any connection to a server. Syncing with other copies (for example, on GitHub or GitLab) is an explicit step, not a precondition for being able to work.
+
+```text
+No version control              Centralized                  Git (distributed)
+folder_v1                      Central server                Local copy A (full history)
+folder_v2_final                     ↑↓                              ↕
+folder_v2_final_ok             Working copy                  Local copy B (full history)
+                                                                     ↕
+                                                               Remote (optional)
+```
+
+## How Git works
+
+To really understand Git, it helps to look at four zones your code moves through, and how they relate to each other:
+
+- **Working tree**: the files as you see and edit them on your filesystem, in their current state.
+- **Staging area** (also called the index): an intermediate zone where you prepare exactly which changes you want to include in the next commit. Not everything you've modified has to go into the next commit; the staging area lets you choose.
+- **Repository**: where Git stores the commit history permanently, inside the hidden `.git` folder.
+- **Remote**: a copy of the repository that lives somewhere else, usually a server like GitHub or GitLab, that you sync your work with.
+
+```text
+Working Tree
+     ↓
+Staging Area
+     ↓
+Repository
+     ↓
+Remote
+```
+
+When you run these three commands, here's what actually happens:
+
+```bash
+git add
+git commit
+git push
+```
+
+`git add` takes the current state of one or more files from the working tree and copies it to the staging area, marking it as "ready for the next commit." `git commit` takes everything in the staging area and permanently saves it in the repository as a new commit, with a unique identifier. `git push` sends the commits you have locally that the remote doesn't have yet, publishing them there.
+
+It's important to understand that these three steps are independent: you can `add` without committing, you can make several local commits without pushing, and in fact it's common to accumulate several local commits before syncing them with the remote.
+
+## Installing and configuring Git
+
+To check whether Git is already installed and which version you have:
+
+```bash
+git --version
+```
+
+The first time you use Git on a machine, it's worth setting up your identity, since every commit gets associated with a name and an email:
+
+```bash
+git config --global user.name
+git config --global user.email
+```
 
 For example:
 
-```text
-Project
-   │
-   ├── version 1
-   ├── version 2
-   ├── version 3
-   └── current version
+```bash
+git config --global user.name "Ana García"
+git config --global user.email "ana@example.com"
 ```
+
+The `--global` flag applies this setting to every repository for your user on that machine; without it, the setting would only apply to the repository you're currently in.
+
+To view all the currently active configuration, combining global and repository-specific values:
+
+```bash
+git config --list
+```
+
+There's no need to go deeper into advanced configuration to start being productive with Git.
+
+## Creating a repository
+
+There are two ways to start working with a Git repository: creating a new one from scratch, or cloning one that already exists.
+
+```bash
+git init
+```
+
+Turns the current folder into a Git repository, creating the hidden `.git` folder where all the history will be stored. Used when you're starting a new project that doesn't have version control yet.
+
+```bash
+git clone https://github.com/user/project.git
+```
+
+Downloads a complete repository that already exists (including all of its history) from a remote URL, and automatically configures it so you can sync with that origin. Used when you're joining a project that already exists, typically hosted on GitHub, GitLab, or similar.
+
+The key difference: `git init` creates history from scratch; `git clone` brings in already existing history and, additionally, automatically configures the connection to the remote you cloned from.
+
+## Your first commit
+
+Let's walk through the full flow with an example. Suppose you just created or modified a `README.md` file.
+
+```bash
+git status
+```
+
+Shows the current state of the working tree and the staging area: which files are modified, which are new and not tracked yet, and which are already in the staging area ready for the next commit.
+
+```bash
+git add README.md
+```
+
+Moves the current state of `README.md` to the staging area.
+
+```bash
+git commit -m "Add project README"
+```
+
+Creates a new commit with everything that was in the staging area, with the given message.
+
+It's important to distinguish three possible states for a file:
+
+- **Modified**: you've changed the file in the working tree, but that change isn't in the staging area yet.
+- **Staged**: the change is in the staging area, ready for the next commit, but the commit hasn't been created yet.
+- **Committed**: the change is already part of a commit and permanently saved in the repository's history.
+
+The same file can have, simultaneously, changes already committed, changes in staging, and additional unstaged changes, if you keep editing it after running `git add`.
+
+## Commits
+
+A commit is a snapshot of the complete state of the project at a given moment, along with metadata about that change. Every commit contains:
+
+- A **SHA identifier**: a unique hash (for example `a1b2c3d...`) computed from the commit's content, which identifies it unambiguously across the whole history.
+- A **commit message**, describing what change was made and, ideally, why.
+- Metadata such as author, date, and committer.
+- A reference to its **parent commit or commits**: the commit (or commits, in the case of a merge) it directly descends from. This chain of references is what forms the history.
+
+```bash
+git commit
+```
+
+Opens your configured text editor to write a longer commit message, with a title and body if needed.
+
+```bash
+git commit -m "Fix login validation bug"
+```
+
+Creates the commit directly with the given message inline, useful for short messages.
+
+```bash
+git show <commit>
+```
+
+Shows the full details of a specific commit: metadata and the exact diff it introduced.
+
+A good commit generally has a few traits: it groups a coherent, self-contained change (not a mix of unrelated things), it has a clear message explaining the "what" and, when it adds value, the "why," and it leaves the project in a working state, without breaking anything halfway through.
+
+## Browsing history
+
+```bash
+git log
+```
+
+Shows the commit history, from most recent to oldest, with author, date, full hash, and message.
+
+```bash
+git log --oneline
+```
+
+Shows a condensed version, one line per commit, with the abbreviated hash and message. Very useful for a quick overview.
+
+```bash
+git log --graph
+```
+
+Adds an ASCII visual representation of how commits branch and merge, especially useful when the history isn't fully linear.
+
+```bash
+git show <commit>
+```
+
+As mentioned, shows the exact content of a specific commit.
+
+```bash
+git diff
+```
+
+Shows the changes in the working tree that are **not** in the staging area yet.
+
+```bash
+git diff --staged
+```
+
+Shows the changes that **are** in the staging area, i.e. the ones that would be included if you ran `git commit` right now.
+
+That's exactly the difference between the two: `git diff` compares the working tree against the staging area (or against the last commit, if staging is empty), while `git diff --staged` compares the staging area against the last commit.
+
+## Branches
+
+A branch in Git is, technically, just a movable pointer to a specific commit. When you make a new commit while on a branch, Git automatically moves that pointer to point at the new commit. This is much lighter than it sounds: creating a branch doesn't copy any files, it just creates a new pointer.
+
+```bash
+git branch
+```
+
+Lists existing local branches, marking with an asterisk which one you're currently on.
+
+```bash
+git branch feature/login
+```
+
+Creates a new branch called `feature/login`, pointing at the current commit, without switching to it.
+
+```bash
+git switch feature/login
+```
+
+Changes your working tree and your `HEAD` to point at the `feature/login` branch.
+
+```bash
+git switch -c feature/login
+```
+
+Creates the branch and switches to it in a single step; it's the combined equivalent of the two commands above.
+
+**`HEAD`** is a special reference that indicates which commit (usually, via which branch) you're currently on. When you switch branches with `git switch`, what actually happens is that `HEAD` starts pointing to another branch, and Git updates the working tree to match the commit that branch points to.
+
+```text
+A---B---C  main
+         \
+          D---E  feature
+```
+
+In this diagram, `main` and `feature` share history up to commit `C`, and diverge from there: `feature` has two additional commits (`D` and `E`) that `main` doesn't have. This lets different lines of development move forward in parallel, without one affecting the other until you decide to integrate them.
+
+## Merge
+
+`git merge` integrates the changes from one branch into the branch you're currently on.
+
+```bash
+git switch main
+git merge feature/login
+```
+
+There are two possible outcomes depending on the state of the history:
+
+**Fast-forward**: if `main` hasn't had any new commits since `feature/login` was created, Git simply moves `main`'s pointer forward to the last commit of `feature/login`, without creating any new commit. The history stays linear.
+
+**Merge commit**: if both branches have new commits since they diverged, Git creates a special new commit with **two parents**, joining both lines of history. This commit represents the point where the two branches are integrated.
+
+```text
+Before merge:
+
+A---B---C          main
+     \
+      D---E        feature
+
+After a merge commit:
+
+A---B---C-------M  main
+     \         /
+      D---E---/    feature
+```
+
+When both branches have modified the same lines of the same file in incompatible ways, Git can't automatically decide which version to keep, and a **conflict** occurs, explained in the next section.
+
+## Conflicts
+
+A conflict happens when Git can't automatically combine the changes from two branches because both have modified the same lines differently. Git marks the affected file with special markers:
+
+```text
+<<<<<<< HEAD
+current content
+=======
+content from the other branch
+>>>>>>> feature
+```
+
+Everything between `<<<<<<< HEAD` and `=======` is the version from the branch you're on (usually the merge target); everything between `=======` and `>>>>>>> feature` is the version coming from the other branch.
+
+To resolve a conflict:
+
+1. Open the file and decide what the final content should be: it could be one of the two versions, a combination of both, or something else entirely.
+2. Remove the markers (`<<<<<<<`, `=======`, `>>>>>>>`) completely, leaving only the correct final content.
+3. Repeat this for every conflicted file.
+
+```bash
+git status
+```
+
+Shows you which files are still in conflict and which have already been resolved and marked.
+
+```bash
+git add resolved-file.js
+```
+
+Marks the file as resolved, adding it to the staging area.
+
+```bash
+git commit
+```
+
+Once every conflict is resolved and staged, this completes the merge by creating the merge commit. Git usually generates a default message you can keep or edit.
+
+If at any point you want to cancel the merge and go back to the state before it started:
+
+```bash
+git merge --abort
+```
+
+This only works while the merge is in progress, i.e. before completing the merge commit.
+
+## Rebase
+
+`git rebase` is an alternative to `merge` for integrating changes between branches, but with a very different effect on the history.
+
+```bash
+git switch feature
+git rebase main
+```
+
+Instead of creating a merge commit that joins both lines, `rebase` takes the commits from your current branch and **reapplies them one by one**, as if you had created them starting from the base branch's latest commit. The result is a linear history, with no visible branching.
+
+```text
+Before:
+
+A---B---C  main
+     \
+      D---E  feature
+
+After the rebase:
+
+A---B---C---D'---E'  feature
+```
+
+It's essential to understand that `D'` and `E'` are **not the same commits** as `D` and `E`: they have the same content (in principle), but since their parent commit has changed, their SHA hash changes too. They're new commits that replace the originals.
+
+**Merge vs rebase**, conceptually: `merge` preserves the history exactly as it happened, with its branching, and adds a commit documenting the integration. `rebase` rewrites the history so it looks like the work was done linearly, with no branching.
+
+`rebase` can be useful for keeping a clean local history before sharing your work, for example, reordering or squashing commits on your own branch that you haven't published yet.
+
+It should be **avoided on already shared history**: if other people have already pulled the original commits (`D` and `E`) and you rewrite them with `rebase` (turning them into `D'` and `E'`), their local copies and yours diverge in a confusing way, because to Git these are different commits even if the content is similar. The general rule is: never `rebase` commits you've already published that other people may have pulled.
+
+## Remote repositories
+
+A **remote** is a named reference to the URL of another copy of the repository, usually hosted on a server. When you clone a repository, Git automatically creates a remote named **`origin`** pointing to the URL you cloned from.
+
+```bash
+git remote -v
+```
+
+Lists the configured remotes, showing their name and URL, both for downloading (`fetch`) and publishing (`push`).
+
+```bash
+git remote add upstream https://github.com/other-user/project.git
+```
+
+Adds a new remote named `upstream`, useful for example when you're working on a fork and want to be able to sync with the original repository.
+
+```bash
+git remote remove upstream
+```
+
+Removes that remote's configuration (this doesn't delete any history, only the reference).
+
+A **tracking branch** is a local branch configured to know which remote branch it corresponds to, so `git pull` and `git push` know where to sync without you having to specify it every time. A **remote-tracking branch** (for example, `origin/main`) is the local reference to what the remote's `main` branch looked like the last time you synced; it doesn't update on its own, only when you `fetch` or `pull`.
+
+## Fetch, Pull, and Push
+
+This is one of the most important distinctions in Git, and also one of the most confusing.
+
+```bash
+git fetch
+```
+
+Downloads the new commits and branches that exist on the remote but that you don't have locally yet, and updates the remote-tracking branches (like `origin/main`) to reflect the remote's state. **It doesn't touch your working tree or your local branches.** It's a safe operation you can run at any time with no risk of losing work or introducing unexpected changes to your code.
+
+```bash
+git pull
+```
+
+Combines two steps: first it runs a `git fetch`, then it automatically integrates those changes into your current branch, usually via a `merge` (or a `rebase`, if you've configured it that way). In other words, `git pull` does modify your working tree and local branch; `git fetch` alone does not.
+
+```bash
+git push
+```
+
+Sends the commits you have on your local branch that the remote doesn't have yet, publishing them there. If the remote has commits you don't have locally, `git push` will be rejected until you `pull` (or `fetch` + `merge`/`rebase`) first, to avoid overwriting someone else's work.
+
+Example of a typical flow:
+
+```bash
+git fetch origin
+git log main..origin/main
+git merge origin/main
+git push origin main
+```
+
+Here you first download what's new on the remote without touching your branch, then check what new commits exist before integrating them, and finally decide to integrate them and publish your own work.
+
+## Working with remote branches
+
+```bash
+git branch -a
+```
+
+Lists all branches, both local and remote-tracking.
+
+```bash
+git branch -r
+```
+
+Lists only remote-tracking branches, like `origin/main` or `origin/feature/login`.
+
+```bash
+git switch -c feature origin/feature
+```
+
+Creates a local branch called `feature` starting from the state of `origin/feature`, and automatically configures it to track that remote branch. This is the usual way to start working locally on a branch someone else has already created and published.
+
+## Undoing changes
+
+Git offers three different commands for undoing changes, and picking the right one for the situation is key to not losing work by accident.
+
+```bash
+git restore <file>
+```
+
+Discards changes to a file in the working tree, returning it to the state of the last commit (or of the staging area, if the file was staged). Use it when you've modified a file and want to undo those changes because you don't need them.
+
+```bash
+git restore --staged <file>
+```
+
+Removes a file from the staging area, without touching its changes in the working tree. Use it when you've run `git add` by mistake and want to take the file out of the next commit without losing the change itself.
+
+```bash
+git reset <commit>
+```
+
+Moves the current branch (and, depending on the mode, also the staging area and the working tree) back to an earlier commit. Use it to undo **local commits you haven't published yet**.
+
+```bash
+git revert <commit>
+```
+
+Creates a **new commit** that exactly undoes the changes introduced by an earlier commit, without deleting or rewriting any existing commit. Use it to undo a commit **that's already published and that other people may have**.
+
+The reason `git revert` is usually the right choice for undoing already-shared changes is precisely that it doesn't rewrite history: it adds a new commit, so anyone who already has the original commit can sync without conflicts or lost references, simply by pulling the revert commit.
+
+## Reset
+
+`git reset` has three modes, each affecting different zones:
+
+```bash
+git reset --soft <commit>
+```
+
+Moves `HEAD` (and the current branch) to the given commit, but **keeps intact** the staging area and the working tree as they were. The changes from the "undone" commits end up staged, ready to be committed again in a different way.
+
+```bash
+git reset --mixed <commit>
+```
+
+The default mode (if you don't specify one). Moves `HEAD` and updates the staging area to match the given commit, but **keeps the working tree intact**. The changes end up as unstaged modifications.
+
+```bash
+git reset --hard <commit>
+```
+
+Moves `HEAD`, updates the staging area **and overwrites the working tree** to exactly match the given commit. Any uncommitted change is lost irreversibly.
+
+```text
+                HEAD / branch   Staging area   Working tree
+--soft          moves            unchanged      unchanged
+--mixed         moves            updated        unchanged
+--hard          moves            updated        updated (changes are lost!)
+```
+
+**Warning**: `git reset --hard` permanently discards any uncommitted change in the working tree, and there's no way to recover it afterward, because that content never became part of Git's history. Only use it when you're completely sure you want to discard those changes.
+
+## Stash
+
+```bash
+git stash
+```
+
+Temporarily saves all uncommitted changes from the working tree and staging area, and leaves your working tree clean, as if you'd just checked out the last commit. Useful when you need to quickly switch tasks (for example, to fix an urgent bug on another branch) without wanting to commit half-finished work.
+
+```bash
+git stash list
+```
+
+Shows all saved stashes, since you can have several stacked up.
+
+```bash
+git stash pop
+```
+
+Retrieves the most recent stash, applying it on top of the current working tree, and removes it from the stash list.
+
+```bash
+git stash apply
+```
+
+Same as `pop`, but **doesn't remove** the stash from the list; useful if you want to apply the same stash in more than one place.
+
+```bash
+git stash drop
+```
+
+Removes a stash from the list without applying it, when you no longer need it.
+
+Practical example: you're halfway through a change on `feature/login` when you're asked to fix an urgent bug on `main`.
+
+```bash
+git stash
+git switch main
+# fix the bug, commit
+git switch feature/login
+git stash pop
+```
+
+## Tags
+
+A tag is a reference that permanently marks a specific commit, typically used to mark published versions of a project (`v1.0.0`, `v2.3.1`...). Unlike a branch, a tag normally doesn't move once created.
+
+```bash
+git tag
+```
+
+Lists the existing tags in the repository.
+
+```bash
+git tag v1.0.0
+```
+
+Creates a **lightweight tag**: simply a name pointing at the current commit, with no additional metadata.
+
+```bash
+git tag -a v1.0.0 -m "Release 1.0.0"
+```
+
+Creates an **annotated tag**: a full object in Git's database, with its own author, date, and message, in addition to the pointer to the commit. Annotated tags are the recommended choice for marking releases, precisely because they store that extra context.
+
+```bash
+git show v1.0.0
+```
+
+Shows the tag's information (if annotated) and the commit it points to.
+
+```bash
+git push origin v1.0.0
+```
+
+Publishes the tag to the remote; by default, `git push` doesn't send tags automatically, you have to do it explicitly (or use `git push --tags` to send them all).
+
+## Git reflog
+
+```bash
+git reflog
+```
+
+Shows a chronological log of every movement of `HEAD` in your local repository: every commit, checkout, reset, rebase, or merge you've done, with a reference to each state `HEAD` has passed through. In practice, it's a safety net for operations that look destructive.
+
+The problem it solves: if you accidentally run `git reset --hard` to an earlier commit, that "lost" commit doesn't disappear from the repository right away, it just stops being referenced by any branch. `reflog` lets you find its hash and recover it.
+
+Example of recovering after an accidental reset:
+
+```bash
+git reset --hard HEAD~1
+# you realize this was a mistake
+git reflog
+# you see something like: a1b2c3d HEAD@{1}: commit: Add important feature
+git reset --hard a1b2c3d
+```
+
+`reflog` only records activity in your local repository, it doesn't sync with the remote, and entries expire after a while (by default, 90 days for reachable ones and 30 for unreachable ones), so it's not a permanent solution, but it covers the common "I just made a mistake" case.
+
+## .gitignore
+
+`.gitignore` is a text file that tells Git which files or folders to ignore, meaning: never show them as "untracked" and never include them in a commit, even though they exist in the working tree.
+
+It's used to exclude files that shouldn't be part of the history: installed dependencies, local configuration files with secrets, build artifacts, temporary files from the operating system or editor.
+
+Basic patterns: one pattern per line, `*` can be used as a wildcard, and adding `/` at the end restricts the pattern to folders only.
+
+```gitignore
+node_modules/
+.env
+dist/
+.DS_Store
+*.log
+```
+
+This example ignores the Node.js dependencies folder, an environment variables file, the build artifacts folder, macOS's metadata file, and any file with a `.log` extension.
+
+It's worth clarifying something that confuses a lot of people: `.gitignore` **does not remove a file from the repository if it's already being tracked**. If a file already has previous commits, adding it to `.gitignore` only prevents Git from detecting _future_ changes to it; to remove it from history you also need to run `git rm --cached <file>` in addition to adding it to `.gitignore`.
+
+## Best practices
+
+**Small, coherent commits**: each commit should represent a complete, logical change. This makes it easier to review history, `revert` specific changes, and understand what happened and why.
+
+**Clear commit messages**: a good message describes what's changing and, when it's not obvious, why. This makes future work — both yours and other people's — much easier.
+
+**Don't include secrets**: passwords, API keys, or tokens should never be committed, not even in a later "deleted" commit, because they still exist in the history. Use `.gitignore` and environment variables kept outside the repository.
+
+**Keep the main branch stable**: the main branch (`main` or `master`) should always represent a working state of the project, so anyone can build on top of it with confidence.
+
+**Update the branch before starting work**: running `pull` or `fetch` before creating a new working branch reduces the odds of large conflicts later on.
+
+**Review changes before committing**: using `git status` and `git diff` before `git add` prevents accidentally including unrelated changes or files.
+
+**Avoid unnecessary commits**: don't commit auto-generated files, and avoid mixing formatting changes with functional changes without a reason.
+
+**Avoid `force push` on shared branches**: it overwrites remote history, which can make other people lose references to commits they already had.
+
+**Use `--force-with-lease` when a force push is truly necessary**: unlike `--force`, which overwrites blindly, `--force-with-lease` checks that no one else has published changes you don't know about before overwriting, reducing the risk of unknowingly destroying someone else's work.
+
+**Don't rewrite shared history without coordination**: operations like `rebase` or `reset --hard` on already-published commits should be agreed on with the team, since they affect everyone's copies.
+
+**Use tags for versions**: marking releases with annotated tags makes it easy to go back to any published version and generate changelogs.
+
+**Keep `.gitignore` up to date**: reviewing it when adding new tools or dependencies prevents files that shouldn't be versioned from slipping in.
+
+## Common mistakes
+
+### Committing files that shouldn't be versioned
+
+This usually happens with dependency folders or local configuration files. Prevented by keeping `.gitignore` up to date from the start of the project; if it's already been committed by mistake, it's fixed with `git rm --cached` and a new commit.
+
+### Confusing `pull`, `fetch`, and `merge`
+
+As explained above: `fetch` only downloads information without touching your local branch; `merge` integrates a branch into the one you're on; `pull` combines both automatically. Many "Git did something weird" problems come from using `pull` without understanding that it also performs an automatic merge (or rebase).
+
+### Using `reset --hard` without understanding its consequences
+
+Permanently discards any uncommitted change. Before using it, it's worth checking with `git status` that there's no important unsaved work, or running a `git stash` as a safety net.
+
+### Running `rebase` on shared history
+
+Rewrites commits other people may have already pulled, causing diverging histories and confusion when syncing. `rebase` should only be used on commits that haven't been published yet.
+
+### Using `git push --force`
+
+Overwrites remote history without checking whether someone else has published changes in the meantime, which can erase other people's commits without them finding out until it's too late. When a force push is genuinely necessary (for example, after rebasing your own branch), `--force-with-lease` is safer.
+
+### Not reviewing changes before committing
+
+Using `git status` to see which files changed, and `git diff` / `git diff --staged` to review exactly what content is about to be committed, avoids including forgotten debug changes, wrong files, or half-finished code.
+
+### Losing work
+
+When it looks like a commit has been lost after a `reset` or another operation, `git reflog` can usually help locate its hash and recover it, as long as not too much time has passed.
+
+## Full workflow
+
+Let's look at a realistic workflow for developing a new feature:
+
+```text
+main
+ │
+ └── feature/new-feature
+          │
+          ├── changes
+          ├── commits
+          └── review
+                  │
+                  ▼
+                merge
+                  │
+                  ▼
+                 main
+```
+
+1. **Update the repository**:
+
+```bash
+git switch main
+git pull origin main
+```
+
+2. **Create a branch**:
+
+```bash
+git switch -c feature/new-feature
+```
+
+3. **Make changes**: edit the necessary code in your editor.
+
+4. **Review them**:
+
+```bash
+git status
+git diff
+```
+
+5. **Create commits**:
+
+```bash
+git add .
+git commit -m "Add validation to signup form"
+```
+
+6. **Sync with the remote**:
+
+```bash
+git push origin feature/new-feature
+```
+
+7. **Resolve any conflicts**: if `main` has moved forward in the meantime, it's worth integrating those changes before merging your branch:
+
+```bash
+git fetch origin
+git merge origin/main
+# resolve conflicts if any appear, then:
+git add .
+git commit
+```
+
+8. **Integrate the feature**: usually via a code review (for example, a pull request on whatever platform you use) followed by a merge into `main`:
+
+```bash
+git switch main
+git merge feature/new-feature
+git push origin main
+```
+
+9. **Delete the branch if appropriate**, once it's been integrated:
+
+```bash
+git branch -d feature/new-feature
+git push origin --delete feature/new-feature
+```
+
+## Practical collaboration example
+
+When two developers work on the same repository, the usual pattern looks like this:
+
+```text
+Developer A ──┐
+              ├── Remote Repository
+Developer B ──┘
+```
+
+Both clone the same remote repository. Each one usually works on their own branch, to avoid interfering with the other's work while it's in progress. When one of them wants to share their work, they `push` their branch to the remote; when they want to see what the other has changed, they `fetch` or `pull`.
+
+Conflicts arise when both have modified the same lines of the same files; they're resolved exactly as explained in the conflicts section, usually while running `merge` or `pull`.
+
+A **pull request** (or _merge request_, depending on the platform) is a concept added by platforms like GitHub, GitLab, or Bitbucket **on top of Git**, not a Git feature itself: it's a formal request to integrate the changes from one branch into another, which also allows reviewing code, commenting on specific lines, and running automated checks before merging. Git itself only knows about commits, branches, and merges; the review and approval workflow is a layer added by the platform.
+
+This distinction matters: **Git is the version control system**, with its own commands and its own data model; **GitHub, GitLab, or Bitbucket are platforms that host Git repositories** and add collaboration features on top, like pull requests, issues, or code reviews. You can perfectly well use Git without using any of these platforms.
+
+## Advanced Git
+
+**`git cherry-pick <commit>`**: applies a specific commit from another branch onto the current branch, creating a copy of that commit with the same content but a different hash. Useful when you need a specific change from another branch without merging the whole branch.
+
+```bash
+git cherry-pick a1b2c3d
+```
+
+**`git bisect`**: helps find, through automatic binary search, which commit introduced a specific bug, by marking commits as "good" or "bad" until the culprit is narrowed down.
+
+```bash
+git bisect start
+git bisect bad
+git bisect good v1.0.0
+```
+
+**`git reflog`**: already covered above, it shows the history of `HEAD` movements in your local repository, essential for recovering work that seems lost.
+
+**`git blame <file>`**: shows, line by line, which commit and which author last introduced each line of a file. Useful for understanding the historical context behind a specific change.
+
+```bash
+git blame src/utils.js
+```
+
+**`git clean`**: removes untracked files from the working tree (ones that aren't even in `.gitignore` and have never been added to Git).
+
+```bash
+git clean -n
+git clean -fd
+```
+
+`-n` shows what would be deleted without actually deleting it (dry-run mode); `-fd` forces the deletion, including folders. It's worth always running `-n` first to check what's about to be removed.
+
+**`git worktree`**: lets you have several working tree copies of the same repository, each on a different branch, without needing to clone the repository multiple times or constantly `switch` back and forth.
+
+```bash
+git worktree add ../project-hotfix hotfix/critical-bug
+```
+
+## Git's mental model
+
+Rather than memorizing commands, it helps to understand how Git thinks internally.
+
+```text
+Working Tree
+      ↓
+   Staging
+      ↓
+   Commit
+      ↓
+    Branch
+      ↓
+   Remote
+```
+
+A few key ideas worth internalizing:
+
+**Branches are references, not copies**. A branch isn't a parallel folder with duplicated files; it's simply a name pointing at a specific commit. Creating a branch is an almost instant operation for exactly this reason.
+
+**Commits form a graph, not a list**. Every commit points to its parent commit (or commits), forming a directed acyclic graph. Most of the time that graph looks like a line, but as soon as there are branches and merges, it becomes a network of connected nodes.
+
+**`HEAD` indicates where you're currently standing**. Usually `HEAD` points to a branch (and that branch points to a commit), but it can also point directly at a specific commit, a state known as "detached HEAD," useful for example when exploring old versions without creating a branch.
+
+**Running `switch` changes the current reference and the working tree**. When you switch branches, Git updates `HEAD` to point at the new branch, and rewrites the working tree to match the commit that branch points to. That's why switching branches can make files "appear" or "disappear": they're the ones that exist on one branch but not the other.
+
+**A commit isn't a complete, independent copy of the project**. Internally, Git is very efficient: it only stores new or changed content relative to earlier commits (using internal compression and shared reference mechanisms), even though conceptually each commit represents the project's complete state at that moment.
+
+Understanding this — references that move, a graph of commits, and `HEAD` as a "where am I" pointer — is far more useful in the long run than memorizing every possible flag combination.
+
+## References
+
+- [Git Documentation](https://git-scm.com/doc)
+- [Git Reference](https://git-scm.com/docs)
+- [Pro Git Book](https://git-scm.com/book/en/v2)
+- [GitHub Docs](https://docs.github.com/)

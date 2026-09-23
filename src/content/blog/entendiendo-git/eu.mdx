@@ -9,25 +9,843 @@ lang: "eu"
 categories: ["development", "tools"]
 ---
 
-# Git ulertzen
+## Sarrera
 
-Git bertsioak kontrolatzeko sistema bat da.
+Git gaur egungo software-garapen ia guztiak erabiltzen duen bertsio-kontrolerako sistema da, bai proiektu pertsonaletan, bai talde txikietan, bai milaka laguntzailek osatutako erakundeetan. Linus Torvalds-ek sortu zuen 2005ean, Linux-en kernela garatzeko, orduko tresnak munduan sakabanatutako laguntzaile hain askorekin lan egiteko motelegiak eta mugatuak geratzen zirelako.
 
-Baina komandoak ikasi aurretik, Git-ek zer arazo konpontzen duen ulertzea komeni da.
+Git-ek konpontzen duen arazoa erraz azal daiteke: hainbat pertsonak kode berean lan egiten dutenean denboran zehar, norbaitek erregistratu behar du zer aldatu den, noiz, nork egin duen eta zergatik, eta gainera lan-lerro ezberdinak paraleloan aurrera egiteko aukera eman behar du, elkar oztopatu gabe. Halako tresnarik gabe, ohikoa da `proiektua_final_v2_definitiboa` bezalako izenak dituzten karpetak izatea, nahi gabe gainidatzitako aldaketak, eta atzera egiteko ezintasuna zerbait apurtzen denean.
 
-## Zer arazo konpontzen du Git-ek?
+Aurreko bertsio-kontrolerako sistema zentralizatuekin (Subversion edo CVS bezalakoekin) alderatuta, Git-ek du berezitasun bat: **banatua da**. Repositorio bat klonatzen duen edonork historia osoaren kopia du, ez soilik uneko fitxategiena. Horrek esan nahi du commitak egin ditzakezula, historia osoa kontsultatu eta adarrekin lan egin daitekeela zerbitzari zentralera konexiorik gabe; sarea behar duzu soilik zure lana beste pertsona batzuekin sinkronizatu nahi duzunean.
 
-Proiektu batean lan egiten dugunean, gure fitxategiak etengabe aldatzen dira.
+Gida hau amaitzean ulertuko duzu zer den repositorio bat, commit bat, adar bat eta `HEAD`; jakingo duzu nola sortu repositorioak, commitak egin, historia kontsultatu, adarrekin lan egin eta haiek fusionatu, gatazkak ebatzi, `rebase` irizpidez erabili, urruneko repositorioekin sinkronizatu, aldaketak modu seguruan desegin, eta `stash`, tag eta `reflog` bezalako tresnak eguneroko lanean erabili.
 
-Git-ek aldaketa horien historia gordetzeko eta aztertzeko aukera ematen digu.
+## Zer da Git?
+
+Bertsio-kontrolerako sistema bat, funtsean, fitxategi multzo baten aldaketen historia gordetzen duen tresna da, aurreko bertsioak kontsultatzeko, aldaketak konparatzeko eta fitxategi berean lan egiten duten hainbat pertsonaren lana koordinatzeko aukera ematen duena.
+
+**Bertsio-kontrolik gabe**: aldaketa garrantzitsu bakoitza karpetaren kopia eskuz gordez gordetzen da, edo sinpleki aurreko fitxategia gainidazten da. Ez dago bertsio baten eta bestearen artean zer aldatu den jakiteko modu fidagarririk, ezta atzera egiteko ere lan berriagoa galdu gabe.
+
+**Bertsio-kontrol zentralizatua**: zerbitzari bakarrak gordetzen du historia osoa, eta pertsona bakoitzak uneko bertsioaren kopia batekin lan egiten du. Historia kontsultatzeko edo ia edozein eragiketa garrantzitsu egiteko, zerbitzari horrekin konexioa behar duzu. Zerbitzariak huts egiten badu, inork ezin du historiarekin lan egin.
+
+**Git**: repositorioaren kopia lokal bakoitzak historia osoa dauka, ez soilik uneko fitxategiak. Commitak egin ditzakezu, adarrak sortu, historia kontsultatu eta aldaketak desegin, edozein zerbitzarirekiko konexiorik gabe. Beste kopia batzuekin sinkronizatzea (adibidez, GitHub edo GitLab-en) urrats esplizitu bat da, ez lan egiteko baldintza bat.
+
+```text
+Bertsio-kontrolik gabe         Zentralizatua                Git (banatua)
+karpeta_v1                     Zerbitzari zentrala           Kopia lokal A (historia osoa)
+karpeta_v2_final                    ↑↓                              ↕
+karpeta_v2_final_ok            Lan-kopia                     Kopia lokal B (historia osoa)
+                                                                     ↕
+                                                               Urrunekoa (aukerakoa)
+```
+
+## Nola funtzionatzen du Git-ek
+
+Git benetan ulertzeko, komeni da zure kodea zeharkatzen duen lau zona hauei erreparatzea, eta elkarrekin nola erlazionatzen diren:
+
+- **Working tree** (lan-zuhaitza): zure fitxategi-sisteman ikusi eta editatzen dituzun fitxategiak dira, une horretako egoeran.
+- **Staging area** (indizea ere deitua): hurrengo commitean zehazki zein aldaketa sartu nahi dituzun prestatzen duzun zona ertaina da. Aldatu duzun guztiak ez du zertan hurrengo commitera joan; staging area-k aukeratzeko aukera ematen dizu.
+- **Repository** (biltegia): Git-ek commit-en historia modu iraunkorrean gordetzen duen tokia da, `.git` karpeta ezkutuan.
+- **Remote** (urrunekoa): beste nonbait bizi den repositorioaren kopia da, normalean GitHub edo GitLab bezalako zerbitzari bat, zure lana harekin sinkronizatzeko.
+
+```text
+Working Tree
+     ↓
+Staging Area
+     ↓
+Repository
+     ↓
+Remote
+```
+
+Hiru komando hauek exekutatzean, hau da benetan gertatzen dena:
+
+```bash
+git add
+git commit
+git push
+```
+
+`git add`-ek working tree-ko fitxategi baten edo gehiagoren uneko egoera hartu eta staging area-ra kopiatzen du, "hurrengo commiterako prest" gisa markatuz. `git commit`-ek staging area-n dagoen guztia hartu eta modu iraunkorrean gordetzen du repositorioan commit berri gisa, identifikatzaile berezi batekin. `git push`-ek lokalean dituzun eta urrunekoak oraindik ez dituen commitak bidaltzen ditu, han argitaratuz.
+
+Garrantzitsua da hiru urrats hauek independenteak direla ulertzea: `add` egin dezakezu `commit` egin gabe, hainbat commit lokal egin ditzakezu `push` egin gabe, eta, izan ere, ohikoa da hainbat commit lokal metatzea urrunekoarekin sinkronizatu aurretik.
+
+## Git instalatu eta konfiguratu
+
+Git instalatuta dagoen eta zein bertsio duzun egiaztatzeko:
+
+```bash
+git --version
+```
+
+Makina batean Git lehen aldiz erabiltzen duzunean, komeni da zure identitatea konfiguratzea, commit bakoitza izen eta posta-helbide batekin lotzen baita:
+
+```bash
+git config --global user.name
+git config --global user.email
+```
 
 Adibidez:
 
-```text
-Proiektua
-   │
-   ├── 1. bertsioa
-   ├── 2. bertsioa
-   ├── 3. bertsioa
-   └── uneko bertsioa
+```bash
+git config --global user.name "Ana García"
+git config --global user.email "ana@example.com"
 ```
+
+`--global` bandera makina horretako zure erabiltzailearen repositorio guztiei aplikatzen zaie; hura gabe, zauden repositorioari soilik eragingo lioke.
+
+Aktibo dagoen konfigurazio osoa kontsultatzeko, balio globalak eta repositorio-espezifikoak konbinatuz:
+
+```bash
+git config --list
+```
+
+Ez da beharrezkoa konfigurazio aurreratuan sakontzea Git-ekin modu produktiboan lanean hasteko.
+
+## Repositorio bat sortu
+
+Bi modu daude Git repositorio batekin lanean hasteko: berri bat hutsetik sortzea, edo dagoeneko existitzen den bat klonatzea.
+
+```bash
+git init
+```
+
+Uneko karpeta Git repositorio bihurtzen du, historia guztia gordeko den `.git` karpeta ezkutua sortuz. Bertsio-kontrolik oraindik ez duen proiektu berri bat hasten duzunean erabiltzen da.
+
+```bash
+git clone https://github.com/erabiltzailea/proiektua.git
+```
+
+Dagoeneko existitzen den repositorio oso bat (bere historia osoarekin) deskargatzen du URL urruneko batetik, eta automatikoki konfiguratzen du klonatu duzun iturri horrekin sinkronizatu ahal izateko. Dagoeneko existitzen den proiektu batera sartzen zarenean erabiltzen da, normalean GitHub, GitLab edo antzeko batean ostatatua.
+
+Alde nagusia: `git init`-ek historia hutsetik sortzen du; `git clone`-k jadanik existitzen den historia dakar, eta gainera automatikoki konfiguratzen du klonatu duzun urrunekoarekiko konexioa.
+
+## Lehen commita
+
+Ikus dezagun fluxu osoa adibide batekin. Demagun `README.md` fitxategi bat sortu edo aldatu berri duzula.
+
+```bash
+git status
+```
+
+Working tree-aren eta staging area-ren uneko egoera erakusten du: zein fitxategi dauden aldatuta, zein diren berriak eta oraindik trackeatu gabe daudenak, eta zein dauden jada staging area-n hurrengo committerako prest.
+
+```bash
+git add README.md
+```
+
+`README.md`-ren uneko egoera staging area-ra pasatzen du.
+
+```bash
+git commit -m "Add project README"
+```
+
+Commit berri bat sortzen du staging area-n zegoen guztiarekin, adierazitako mezuarekin.
+
+Garrantzitsua da fitxategi baterako hiru egoera posible bereiztea:
+
+- **Aldatua**: fitxategia working tree-n aldatu duzu, baina aldaketa hori oraindik ez dago staging area-n.
+- **Staged**: aldaketa staging area-n dago, hurrengo committerako prestatuta, baina commita oraindik ez da sortu.
+- **Committeatua**: aldaketa jada commit baten parte da eta repositorioaren historian modu iraunkorrean gordeta dago.
+
+Fitxategi berak, aldi berean, jada committeatutako aldaketak, staging-en dauden aldaketak eta stagerik gabeko aldaketa gehigarriak izan ditzake, `git add` egin ondoren editatzen jarraitzen baduzu.
+
+## Commit-ak
+
+Commit bat proiektuaren egoera osoaren une jakin bateko argazkia da, aldaketa horri buruzko metadatuekin batera. Commit bakoitzak hauek ditu:
+
+- **SHA identifikatzaile** bat: commit-aren edukitik kalkulatutako hash bakarra (adibidez `a1b2c3d...`), historia osoan zehazki identifikatzen duena.
+- **Commit mezu** bat, zer aldaketa egin den eta, idealki, zergatik deskribatzen duena.
+- Egile, data eta committer bezalako metadatuak.
+- Bere **commit gurasoari edo gurasoei** erreferentzia: zuzenean datorren commit-a (edo commit-ak, merge baten kasuan). Erreferentzia-kate hori da historia osatzen duena.
+
+```bash
+git commit
+```
+
+Konfiguratutako testu-editorea irekitzen du commit mezu luzeago bat idazteko, izenburu eta gorputzarekin behar izanez gero.
+
+```bash
+git commit -m "Fix login validation bug"
+```
+
+Commita zuzenean sortzen du lerroan adierazitako mezuarekin, mezu laburretarako erabilgarria.
+
+```bash
+git show <commit>
+```
+
+Commit jakin baten xehetasun osoak erakusten ditu: metadatuak eta sartu zuen diff zehatza.
+
+Commit onak zenbait ezaugarri betetzen ditu normalean: aldaketa koherente eta autonomo bat biltzen du (ez erlaziorik gabeko gauzen nahasketa bat), mezu argia du "zer" eta, balioa gehitzen duenean, "zergatik" azaltzen duena, eta proiektua egoera funtzionalean uzten du, erdi eginda ezer apurtu gabe.
+
+## Historia kontsultatu
+
+```bash
+git log
+```
+
+Commit-en historia erakusten du, berrienetik zaharrenera, egilea, data, hash osoa eta mezuarekin.
+
+```bash
+git log --oneline
+```
+
+Bertsio laburtu bat erakusten du, commit bakoitzeko lerro bat, hash laburtuarekin eta mezuarekin. Oso erabilgarria ikuspegi azkar bat izateko.
+
+```bash
+git log --graph
+```
+
+Commit-ak nola adartzen eta fusionatzen diren erakusteko ASCII irudikapen bisual bat gehitzen du, historia guztiz lineala ez denean bereziki erabilgarria.
+
+```bash
+git show <commit>
+```
+
+Ikusi dugun bezala, commit jakin baten eduki zehatza erakusten du.
+
+```bash
+git diff
+```
+
+Working tree-n staging area-n **oraindik ez** dauden aldaketak erakusten ditu.
+
+```bash
+git diff --staged
+```
+
+Staging area-n **badauden** aldaketak erakusten ditu, hau da, orain `git commit` eginez gero sartuko liratekeenak.
+
+Bien arteko aldea hori da zehazki: `git diff`-ek working tree staging area-rekin (edo azken committarekin, staging-en ezer ez badago) konparatzen du, eta `git diff --staged`-ek staging area azken committarekin konparatzen du.
+
+## Adarrak
+
+Adar bat, teknikoki, commit jakin bati erreferentzia egiten dion puntero mugikor bat baino ez da. Adar batean zaudela commit berri bat egiten duzunean, Git-ek automatikoki puntero hori mugitzen du commit berriari begira jartzeko. Hau dirudiena baino askoz arinagoa da: adar bat sortzeak ez du fitxategirik kopiatzen, puntero berri bat baino ez du sortzen.
+
+```bash
+git branch
+```
+
+Existitzen diren adar lokalak zerrendatzen ditu, asterisko batekin markatuz zeinetan zauden.
+
+```bash
+git branch feature/login
+```
+
+`feature/login` izeneko adar berri bat sortzen du, uneko committari begira, baina bertara aldatu gabe.
+
+```bash
+git switch feature/login
+```
+
+Zure working tree eta zure `HEAD` aldatzen ditu `feature/login` adarrari begira egon daitezen.
+
+```bash
+git switch -c feature/login
+```
+
+Adarra sortzen du eta bertara aldatzen da urrats bakarrean; aurreko bi komandoen baliokide konbinatua da.
+
+**`HEAD`** zein commitetan (normalean, zein adarren bidez) zauden adierazten duen erreferentzia berezia da. `git switch`-ekin adarrez aldatzen duzunean, benetan gertatzen dena da `HEAD` beste adar bati begira jartzen dela, eta Git-ek working tree eguneratzen du adar horrek seinalatzen duen committarekin bat etor dadin.
+
+```text
+A---B---C  main
+         \
+          D---E  feature
+```
+
+Diagrama honetan, `main`-ek eta `feature`-k historia partekatzen dute `C` commitera arte, eta hortik aurrera desberdintzen dira: `feature`-k bi commit gehigarri ditu (`D` eta `E`) `main`-ek ez dituenak. Horrek garapen-lerro ezberdinak paraleloan aurrera egiten uzten du, batek besteari eragin gabe integratzea erabaki arte.
+
+## Merge
+
+`git merge`-k adar baten aldaketak zauden uneko adarrean integratzen ditu.
+
+```bash
+git switch main
+git merge feature/login
+```
+
+Bi emaitza posible daude historiaren egoeraren arabera:
+
+**Fast-forward**: `main`-ek commit berririk ez badu `feature/login` sortu zenetik, Git-ek soilik `main`-en puntero mugitzen du `feature/login`-en azken committara arte, commit berririk sortu gabe. Historia lineala geratzen da.
+
+**Merge commit**: bi adarrek commit berriak badituzte desberdindu zirenetik, Git-ek **bi guraso** dituen commit berezi berri bat sortzen du, bi historia-lerroak elkartuz. Commit horrek bi adarrak integratzen diren puntua irudikatzen du.
+
+```text
+Merge aurretik:
+
+A---B---C          main
+     \
+      D---E        feature
+
+Merge commit baten ondoren:
+
+A---B---C-------M  main
+     \         /
+      D---E---/    feature
+```
+
+Bi adarrek fitxategi bereko lerro berak modu bateraezinean aldatu dituztenean, Git-ek ezin du automatikoki erabaki zein bertsio mantendu, eta **gatazka** bat sortzen da, hurrengo atalean azalduta.
+
+## Gatazkak
+
+Gatazka bat gertatzen da Git-ek bi adarren aldaketak automatikoki konbinatu ezin dituenean, biek fitxategi bereko lerro berak modu ezberdinean aldatu dituztelako. Git-ek eragindako fitxategia marka berezirekin markatzen du:
+
+```text
+<<<<<<< HEAD
+uneko edukia
+=======
+beste adarraren edukia
+>>>>>>> feature
+```
+
+`<<<<<<< HEAD`-ren eta `=======`-ren artean agertzen den guztia zauden adarraren bertsioa da (normalean merge-aren helburua); `=======`-ren eta `>>>>>>> feature`-ren artean agertzen den guztia beste adarretik datorren bertsioa da.
+
+Gatazka bat ebazteko:
+
+1. Ireki fitxategia eta erabaki zein eduki geratu behar den: bi bertsioetako bat izan daiteke, biren konbinazio bat, edo beste zerbait.
+2. Ezabatu markak (`<<<<<<<`, `=======`, `>>>>>>>`) erabat, azken eduki zuzena soilik utziz.
+3. Errepikatu hau gatazkan dagoen fitxategi bakoitzarekin.
+
+```bash
+git status
+```
+
+Gatazkan jarraitzen duten fitxategiak eta jada ebatzita eta markatuta daudenak erakusten dizkizu.
+
+```bash
+git add ebatzitako-fitxategia.js
+```
+
+Fitxategia ebatzita gisa markatzen du, staging area-ra gehituz.
+
+```bash
+git commit
+```
+
+Gatazka guztiak ebatzita eta staging area-ra gehituta daudenean, mergea osatzen du fusio-commita sortuz. Git-ek normalean mezu lehenetsi bat sortzen du, mantendu edo editatu dezakezuna.
+
+Edozein unetan mergea bertan behera utzi eta hasi aurreko egoerara itzuli nahi baduzu:
+
+```bash
+git merge --abort
+```
+
+Hau mergea martxan dagoen bitartean soilik funtzionatzen du, hau da, fusio-commita osatu aurretik.
+
+## Rebase
+
+`git rebase` `merge`-rako alternatiba bat da adarren arteko aldaketak integratzeko, baina historian eragin oso ezberdina duena.
+
+```bash
+git switch feature
+git rebase main
+```
+
+Bi lerroak elkartzen dituen fusio-commit bat sortu ordez, `rebase`-k zure uneko adarreko commit-ak hartu eta **banan-banan berrezartzen ditu**, adar-basearen azken committatik abiatuta sortu izan bazenitu bezala. Emaitza historia lineala da, adarketa ikusgairik gabe.
+
+```text
+Aurretik:
+
+A---B---C  main
+     \
+      D---E  feature
+
+Rebasearen ondoren:
+
+A---B---C---D'---E'  feature
+```
+
+Funtsezkoa da `D'` eta `E'` `D` eta `E` commit **berberak ez direla** ulertzea: eduki bera dute (printzipioz), baina beren commit gurasoa aldatu denez, beren SHA hasha ere aldatu egiten da. Originalak ordezten dituzten commit berriak dira.
+
+**Merge vs rebase**, kontzeptualki: `merge`-k historia gertatu zen bezala-bezala mantentzen du, bere adarketekin, eta integrazioa dokumentatzen duen commit bat gehitzen du. `rebase`-k historia berridazten du lana lineala izan balitz bezala, adarketarik gabe, dirudien moduan.
+
+`rebase` erabilgarria izan daiteke historia lokal garbi bat mantentzeko zure lana partekatu aurretik, adibidez, oraindik argitaratu ez duzun zure adar propio bateko commitak berrantolatuz edo konbinatuz.
+
+**Dagoeneko partekatutako historian saihestu behar da**: beste pertsona batzuek jada commit originalak (`D` eta `E`) `pull` egin badituzte eta zuk `rebase`-rekin berridazten badituzu (`D'` eta `E'` bihurtuz), beren kopia lokalak eta zureak modu nahasgarrian bereizten dira, Git-entzat commit ezberdinak baitira edukia antzekoa izan arren. Arau orokorra hau da: ez egin inoiz `rebase` jada argitaratu dituzun eta beste pertsona batzuek deskargatuta izan ditzaketen commit-etan.
+
+## Urruneko repositorioak
+
+**Remote** bat beste repositorio-kopia baten URLera izendun erreferentzia bat da, normalean zerbitzari batean ostatatua. Repositorio bat klonatzen duzunean, Git-ek automatikoki **`origin`** izeneko remote bat sortzen du, klonatu duzun URLera begira dagoena.
+
+```bash
+git remote -v
+```
+
+Konfiguratutako remoteak zerrendatzen ditu, beren izena eta URLa erakutsiz, bai deskargatzeko (`fetch`) bai argitaratzeko (`push`).
+
+```bash
+git remote add upstream https://github.com/beste-erabiltzailea/proiektua.git
+```
+
+`upstream` izeneko remote berri bat gehitzen du, adibidez fork batean lan egiten duzunean eta jatorrizko repositorioarekin sinkronizatu ahal izan nahi duzunean erabilgarria.
+
+```bash
+git remote remove upstream
+```
+
+Remote horren konfigurazioa ezabatzen du (ez du historiarik ezabatzen, erreferentzia soilik).
+
+**Tracking branch** bat (jarraipen-adarra) zein urruneko adarrekin dagokion jakiteko konfiguratutako adar lokal bat da, `git pull` eta `git push`-ek non sinkronizatu jakin dezaten, aldi bakoitzean zehaztu behar izan gabe. **Remote-tracking branch** bat (adibidez, `origin/main`) azken aldiz sinkronizatu zenuenean urruneko `main` adarra nola zegoen erakusten duen erreferentzia lokala da; ez da bere kabuz eguneratzen, `fetch` edo `pull` egiten duzunean soilik.
+
+## Fetch, Pull eta Push
+
+Hau Git-en bereizketarik garrantzitsuenetako bat da, eta nahasmendurik gehien sortzen dituenetako bat ere bai.
+
+```bash
+git fetch
+```
+
+Urrunekoan existitzen diren baina lokalean oraindik ez dituzun commit eta adar berriak deskargatzen ditu, eta remote-tracking branch-ak (`origin/main` bezalakoak) eguneratzen ditu urrunekoaren egoera islatzeko. **Ez ditu ukitzen zure working tree ez zure adar lokalak.** Edozein unetan exekuta dezakezun eragiketa segurua da, lana galtzeko edo zure kodean ustekabeko aldaketak sartzeko arriskurik gabe.
+
+```bash
+git pull
+```
+
+Bi urrats konbinatzen ditu: lehenengo `git fetch` bat egiten du, eta gero automatikoki integratzen ditu aldaketa horiek zure uneko adarrean, normalean `merge` baten bidez (edo `rebase` baten bidez, horrela konfiguratu baduzu). Hau da, `git pull`-ek bai aldatzen ditu zure working tree eta zure adar lokala; `git fetch`-ek berak, ez.
+
+```bash
+git push
+```
+
+Zure adar lokalean dituzun eta urrunekoak oraindik ez dituen commit-ak bidaltzen ditu, han argitaratuz. Urrunekoak lokalean ez dituzun commit-ak baditu, `git push` baztertua izango da lehenago `pull` (edo `fetch` + `merge`/`rebase`) egin arte, besteren lana gainidaztea saihesteko.
+
+Fluxu tipiko baten adibidea:
+
+```bash
+git fetch origin
+git log main..origin/main
+git merge origin/main
+git push origin main
+```
+
+Hemen lehenengo urrunekoaren berria deskargatzen duzu zure adarra ukitu gabe, gero commit berri zeintzuk dauden kontsultatzen duzu integratu aurretik, eta azkenik integratzea eta zure lan propioa argitaratzea erabakitzen duzu.
+
+## Urruneko adarrekin lan egin
+
+```bash
+git branch -a
+```
+
+Adar guztiak zerrendatzen ditu, bai lokalak bai remote-tracking-ak.
+
+```bash
+git branch -r
+```
+
+Remote-tracking adarrak soilik zerrendatzen ditu, `origin/main` edo `origin/feature/login` bezalakoak.
+
+```bash
+git switch -c feature origin/feature
+```
+
+`feature` izeneko adar lokal bat sortzen du `origin/feature`-ren egoeratik abiatuta, eta automatikoki konfiguratzen du urruneko adar hori jarraitzeko. Beste pertsona batek dagoeneko sortu eta argitaratu duen adar batean lokalki lanean hasteko modu ohikoena da.
+
+## Aldaketak desegin
+
+Git-ek hiru komando ezberdin eskaintzen ditu aldaketak desegiteko, eta egoerarako egokia hautatzea funtsezkoa da nahigabe lana ez galtzeko.
+
+```bash
+git restore <fitxategia>
+```
+
+Working tree-ko fitxategi baten aldaketak baztertzen ditu, azken committaren egoerara itzuliz (edo staging area-koara, fitxategia staged bazegoen). Fitxategi bat aldatu duzunean eta aldaketa horiek desegin nahi dituzunean erabili, behar ez dituzulako.
+
+```bash
+git restore --staged <fitxategia>
+```
+
+Fitxategi bat staging area-tik ateratzen du, working tree-ko aldaketak ukitu gabe. `git add` okerrez egin duzunean eta fitxategia hurrengo committetik kendu nahi duzunean erabili, aldaketa bera galdu gabe.
+
+```bash
+git reset <commit>
+```
+
+Uneko adarra (eta, moduaren arabera, staging area eta working tree ere) aurreko commit batera eramaten du. **Oraindik argitaratu gabeko commit lokalak** desegiteko erabili.
+
+```bash
+git revert <commit>
+```
+
+Aurreko commit batek sartutako aldaketak zehazki desegiten dituen **commit berri** bat sortzen du, existitzen den commitik ezabatu edo berridatzi gabe. **Jada argitaratuta dagoen eta beste pertsona batzuek izan ditzaketen** commit bat desegiteko erabili.
+
+`git revert` jada partekatutako aldaketak desegiteko egokia izaten den arrazoia zehazki hori da: ez du historia berridazten; commit berri bat gehitzen du, beraz jatorrizko commita jadanik duen edonork gatazkarik edo erreferentzia-galerarik gabe sinkroniza daiteke, revert commita deskargatuz soilik.
+
+## Reset
+
+`git reset`-ek hiru modu ditu, bakoitzak zona ezberdinei eragiten diela:
+
+```bash
+git reset --soft <commit>
+```
+
+`HEAD` (eta uneko adarra) adierazitako committara mugitzen du, baina staging area eta working tree **osorik mantentzen ditu** zeuden bezala. "Desegindako" commit-en aldaketak staged geratzen dira, beste modu batean berriz committeatzeko prest.
+
+```bash
+git reset --mixed <commit>
+```
+
+Modu lehenetsia da (bat zehazten ez baduzu). `HEAD` mugitzen du eta staging area eguneratzen du adierazitako committarekin bat etor dadin, baina working tree **osorik mantentzen du**. Aldaketak stagerik gabeko aldaketa gisa geratzen dira.
+
+```bash
+git reset --hard <commit>
+```
+
+`HEAD` mugitzen du, staging area eguneratzen du **eta working tree gainidazten du** adierazitako committarekin zehazki bat etor dadin. Committeatu gabeko edozein aldaketa modu itzulezinean galtzen da.
+
+```text
+                HEAD / adarra   Staging area   Working tree
+--soft          mugitzen da     ukitu gabe     ukitu gabe
+--mixed         mugitzen da     eguneratuta    ukitu gabe
+--hard          mugitzen da     eguneratuta    eguneratuta (aldaketak galtzen dira!)
+```
+
+**Abisua**: `git reset --hard`-ek committeatu gabeko edozein aldaketa modu iraunkorrean baztertzen du working tree-n, eta ez dago berreskuratzerik ondoren, eduki hori inoiz ez baitzen Git-en historiaren parte izatera iritsi. Erabili soilik guztiz seguru zaudenean aldaketa horiek baztertu nahi dituzula.
+
+## Stash
+
+```bash
+git stash
+```
+
+Working tree-ko eta staging area-ko committeatu gabeko aldaketa guztiak aldi baterako gordetzen ditu, eta zure working tree garbi uzten du, azken committaren checkout-a egin berri bazenu bezala. Zeregina azkar aldatu behar duzunean erabilgarria da (adibidez, beste adar batean premiazko akats bat konpontzeko), erdi egindako lana committeatu nahi izan gabe.
+
+```bash
+git stash list
+```
+
+Gordetako stash guztiak erakusten ditu, hainbat pilatuta izan ditzakezulako.
+
+```bash
+git stash pop
+```
+
+Azken stasha berreskuratzen du, uneko working tree-aren gainean aplikatuz, eta stash-en zerrendatik kentzen du.
+
+```bash
+git stash apply
+```
+
+`pop`-en berdina, baina **ez du kentzen** stasha zerrendatik; stash bera leku batean baino gehiagotan aplikatu nahi baduzu erabilgarria.
+
+```bash
+git stash drop
+```
+
+Stash bat zerrendatik ezabatzen du aplikatu gabe, jada behar ez duzunean.
+
+Adibide praktikoa: `feature/login`-en aldaketa baten erdian zaude, premiazko akats bat konpontzeko eskatzen dizutenean `main`-en.
+
+```bash
+git stash
+git switch main
+# akatsa konpondu, commita egin
+git switch feature/login
+git stash pop
+```
+
+## Tags
+
+Tag bat commit jakin bat modu iraunkorrean markatzen duen erreferentzia bat da, normalean proiektu baten argitaratutako bertsioak seinalatzeko erabiltzen dena (`v1.0.0`, `v2.3.1`...). Adar batetik ezberdin, tag batek normalean ez du mugitzen sortu ondoren.
+
+```bash
+git tag
+```
+
+Repositorioan existitzen diren tagak zerrendatzen ditu.
+
+```bash
+git tag v1.0.0
+```
+
+**Tag arin** bat sortzen du: uneko committari begira dagoen izen bat besterik ez, metadatu gehigarririk gabe.
+
+```bash
+git tag -a v1.0.0 -m "Release 1.0.0"
+```
+
+**Tag anotatu** bat sortzen du: Git-en datu-basean objektu oso bat, bere egile, data eta mezuarekin, committara erakusten duen punteroaz gain. Tag anotatuak dira release-ak markatzeko gomendatuak, hain zuzen ere testuinguru gehigarri hori gordetzen dutelako.
+
+```bash
+git show v1.0.0
+```
+
+Tag-aren informazioa erakusten du (anotatua bada) eta seinalatzen duen committa.
+
+```bash
+git push origin v1.0.0
+```
+
+Taga urrunekoan argitaratzen du; berez, `git push`-ek ez ditu tagak automatikoki bidaltzen, esplizituki egin behar da (edo `git push --tags` erabili guztiak bidaltzeko).
+
+## Git reflog
+
+```bash
+git reflog
+```
+
+Zure repositorio lokalean `HEAD`-ek egindako mugimendu guztien erregistro kronologikoa erakusten du: egin duzun commit, checkout, reset, rebase edo merge bakoitza, `HEAD`-ek zeharkatu duen egoera bakoitzari erreferentzia eginez. Praktikan, suntsigarriak diruditen eragiketetarako segurtasun-sare bat da.
+
+Konpontzen duen arazoa: `git reset --hard` bat egiten baduzu oker aurreko commit batera, "galdutako" commit hori ez da berehala repositoriotik desagertzen, ez baita adar batek ere erreferentzia egiten. `reflog`-ek bere hash-a aurkitu eta berreskuratzeko aukera ematen dizu.
+
+Nahigabeko reset baten ondoren berreskuratzeko adibidea:
+
+```bash
+git reset --hard HEAD~1
+# konturatzen zara okerra izan zela
+git reflog
+# honelako zerbait ikusten duzu: a1b2c3d HEAD@{1}: commit: Add important feature
+git reset --hard a1b2c3d
+```
+
+`reflog`-ek zure repositorio lokaleko jarduera soilik erregistratzen du, ez da urrunekoarekin sinkronizatzen, eta sarrerek denbora tarte baten ondoren iraungitzen dute (berez, 90 egun eskuragarrientzat eta 30 eskuraezinentzat), beraz, ez da irtenbide iraunkorra, baina "oraintxe bertan akats bat egin dut" kasu ohikoa estaltzen du.
+
+## .gitignore
+
+`.gitignore` Git-i zein fitxategi edo karpeta baztertu behar dituen esaten dion testu-fitxategia da, hau da: inoiz ez erakutsi "trackeatu gabe" gisa eta inoiz ez sartu commit batean, working tree-n existitu arren.
+
+Historiaren parte izan behar ez luketen fitxategiak baztertzeko erabiltzen da: instalatutako mendekotasunak, sekretuak dituzten konfigurazio-fitxategi lokalak, konpilazio-artefaktuak, sistema eragilearen edo editorearen behin-behineko fitxategiak.
+
+Oinarrizko patroiak: patroi bat lerro bakoitzeko, `*` komodin gisa erabil daiteke, eta amaieran `/` gehitzeak karpetei soilik erreferentzia egiten die.
+
+```gitignore
+node_modules/
+.env
+dist/
+.DS_Store
+*.log
+```
+
+Adibide honek baztertzen ditu Node.js-en mendekotasunen karpeta, ingurune-aldagaien fitxategi bat, konpilatutako artefaktuen karpeta, macOS-en metadatu-fitxategia, eta `.log` luzapena duen edozein fitxategi.
+
+Garrantzitsua da jende asko nahasten duen zerbait argitzea: `.gitignore`-k **ez du repositoriotik ezabatzen jadanik trackeatuta zegoen fitxategi bat**. Fitxategi batek dagoeneko aurreko commitak baditu, `.gitignore`-ra gehitzeak Git-ek etorkizuneko aldaketak detektatzea baino ez du eragozten; historiatik kentzeko `git rm --cached <fitxategia>` egin behar da `.gitignore`-ra gehitzeaz gain.
+
+## Praktika onak
+
+**Commit txiki eta koherenteak**: commit bakoitzak aldaketa logiko eta osoa irudikatu beharko luke. Historia berrikustea, aldaketa zehatzen `revert` egitea eta zer gertatu den eta zergatik ulertzea errazten du.
+
+**Commit mezu argiak**: mezu onak zer aldatzen den deskribatzen du eta, agerikoa ez denean, zergatik. Etorkizuneko lana, zurea zein beste pertsona batena, izugarri errazten du.
+
+**Ez sartu sekreturik**: pasahitzak, API gakoak edo tokenak inoiz ez lirateke committeatu behar, ezta geroagoko "ezabatutako" commit batean ere, historian jarraitzen baitute egon. Erabili `.gitignore` eta repositoriotik kanpoko ingurune-aldagaiak.
+
+**Mantendu adar nagusia egonkorra**: adar nagusiak (`main` edo `master`) beti proiektuaren egoera funtzional bat irudikatu beharko luke, edonork konfiantzaz abia dezan bertatik.
+
+**Eguneratu adarra lanean hasi aurretik**: lan-adar berri bat sortu aurretik `pull` edo `fetch` egiteak geroago gatazka handiak izateko probabilitatea murrizten du.
+
+**Berrikusi aldaketak commit egin aurretik**: `git status` eta `git diff` erabiltzeak `git add` egin aurretik nahigabeko aldaketak edo ez zegozkien fitxategiak sartzea saihesten du.
+
+**Saihestu beharrezkoak ez diren commit-ak**: ez committeatu automatikoki sortutako fitxategiak, ez nahastu formatu-aldaketak aldaketa funtzionalekin premiarik gabe.
+
+**Saihestu `force push` partekatutako adarretan**: urruneko historia gainidazten du, beste pertsona batzuek jadanik zituzten commit-etara erreferentziak gal ditzaten eraginez.
+
+**Erabili `--force-with-lease` force push bat benetan beharrezkoa denean**: itsu-itsuan gainidazten duen `--force`-tik ezberdin, `--force-with-lease`-k egiaztatzen du beste inork ez duela zuk ezagutzen ez dituzun aldaketarik argitaratu gainidatzi aurretik, konturatu gabe besteren lana suntsitzeko arriskua murriztuz.
+
+**Ez berridatzi partekatutako historia koordinaziorik gabe**: jada argitaratutako commit-etan `rebase` edo `reset --hard` bezalako eragiketak taldearekin adostu behar dira, guztien kopiei eragiten baitiete.
+
+**Erabili tagak bertsioetarako**: release-ak tag anotatuekin markatzeak argitaratutako edozein bertsiotara itzultzea eta changelog-ak sortzea errazten du.
+
+**Mantendu `.gitignore` eguneratuta**: tresna edo mendekotasun berriak gehitzean berrikusteak bertsionatu behar ez luketen fitxategiak sartzea saihesten du.
+
+## Ohiko akatsak
+
+### Bertsionatu behar ez luketen fitxategiak committeatzea
+
+Normalean mendekotasun-karpetekin edo konfigurazio-fitxategi lokalekin gertatzen da. Proiektua hastean `.gitignore` eguneratuta mantenduz saihesten da; jada oker committeatu bada, `git rm --cached`-ekin eta commit berri batekin konpontzen da.
+
+### `pull`, `fetch` eta `merge` nahastea
+
+Aurretik azaldu bezala: `fetch`-ek informazioa soilik deskargatzen du zure adar lokala ukitu gabe; `merge`-k zauden adarrean adar bat integratzen du; `pull`-ek biak automatikoki konbinatzen ditu. "Git-ek zerbait arraro egin du" arazo askoren jatorria `pull` erabiltzea da, automatikoki merge (edo rebase) bat ere egiten duela ulertu gabe.
+
+### `reset --hard` erabiltzea ondorioak ulertu gabe
+
+Committeatu gabeko edozein aldaketa modu iraunkorrean baztertzen du. Erabili aurretik, komeni da `git status`-ekin egiaztatzea ez dagoela lan garrantzitsurik gorde gabe, edo `git stash` bat egitea segurtasun-sare gisa.
+
+### `rebase` partekatutako historian egitea
+
+Beste pertsona batzuek jada deskargatuta izan ditzaketen commit-ak berridazten ditu, historia dibergenteak eta nahasmena eraginez sinkronizatzean. `rebase` oraindik argitaratu ez diren commit-etan soilik egin beharko litzateke.
+
+### `git push --force` erabiltzea
+
+Urruneko historia gainidazten du bitartean beste inork aldaketarik argitaratu duen egiaztatu gabe, eta horrek beste pertsona baten commit-ak ezaba ditzake berandu izan arte konturatu gabe. Force push bat benetan behar denean (adibidez, zure adar propioa rebase egin ondoren), `--force-with-lease` seguruagoa da.
+
+### Aldaketak berrikusi ez commit egin aurretik
+
+`git status` erabiltzeak zein fitxategi aldatu diren ikusteko, eta `git diff` / `git diff --staged` zehazki zein eduki committeatuko den berrikusteko, ahaztutako arazketa-aldaketak, oker dauden fitxategiak edo erdi egindako kodea sartzea saihesten du.
+
+### Lana galtzea
+
+`reset` edo beste eragiketa baten ondoren commit bat galdu dela dirudienean, `git reflog`-ek normalean bere hash-a lokalizatu eta berreskuratzeko aukera ematen du, gehiegi denborarik igaro ez bada.
+
+## Lan-fluxu osoa
+
+Ikus dezagun funtzionalitate berri bat garatzeko lan-fluxu errealista bat:
+
+```text
+main
+ │
+ └── feature/funtzionalitate-berria
+          │
+          ├── aldaketak
+          ├── commitak
+          └── berrikuspena
+                  │
+                  ▼
+                merge
+                  │
+                  ▼
+                 main
+```
+
+1. **Repositorioa eguneratu**:
+
+```bash
+git switch main
+git pull origin main
+```
+
+2. **Adar bat sortu**:
+
+```bash
+git switch -c feature/funtzionalitate-berria
+```
+
+3. **Aldaketak egin**: editatu behar den kodea zure editorean.
+
+4. **Berrikusi**:
+
+```bash
+git status
+git diff
+```
+
+5. **Commitak sortu**:
+
+```bash
+git add .
+git commit -m "Add validation to signup form"
+```
+
+6. **Urrunekoarekin sinkronizatu**:
+
+```bash
+git push origin feature/funtzionalitate-berria
+```
+
+7. **Gerta daitezkeen gatazkak ebatzi**: bitartean `main`-ek aurrera egin badu, komeni da aldaketa horiek zure adarra fusionatu aurretik integratzea:
+
+```bash
+git fetch origin
+git merge origin/main
+# gatazkak agertzen badira ebatzi, gero:
+git add .
+git commit
+```
+
+8. **Funtzionalitatea integratu**: normalean kode-berrikuspen baten bidez (adibidez, erabiltzen duzun plataformako pull request bat) eta gero `main`-era merge bat:
+
+```bash
+git switch main
+git merge feature/funtzionalitate-berria
+git push origin main
+```
+
+9. **Adarra ezabatu, badagokio**, integratu ondoren:
+
+```bash
+git branch -d feature/funtzionalitate-berria
+git push origin --delete feature/funtzionalitate-berria
+```
+
+## Lankidetzaren adibide praktikoa
+
+Bi garatzailek repositorio berean lan egiten dutenean, ohiko eredua hau da:
+
+```text
+Developer A ──┐
+              ├── Remote Repository
+Developer B ──┘
+```
+
+Biek urruneko repositorio bera klonatzen dute. Bakoitzak normalean bere adar propioan lan egiten du, besteen lanean sartu ez dadin martxan dagoen bitartean. Haietako batek bere lana partekatu nahi duenean, bere adarraren `push` egiten du urrunekora; besteak zer aldatu duen ikusi nahi duenean, `fetch` edo `pull` egiten du.
+
+Gatazkak sortzen dira biek fitxategi bereko lerro berak aldatu dituztenean; gatazken atalean azaldu bezala ebazten dira, normalean `merge` edo `pull` egitean.
+
+**Pull request** bat (edo _merge request_, plataformaren arabera) GitHub, GitLab edo Bitbucket bezalako plataformek **Git-en gainean** gehitzen duten kontzeptua da, ez Git-en berezko funtzionalitatea: adar bateko aldaketak beste batean integratzeko eskaera formal bat da, eta gainera kodea berrikusteko, lerro zehatzei buruz iruzkinak egiteko eta egiaztapen automatikoak exekutatzeko aukera ematen du fusionatu aurretik. Git-ek, bere aldetik, commit, adar eta merge besterik ez du ezagutzen; berrikuspen eta onarpen-fluxua plataformak gehitutako geruza bat da.
+
+Bereizketa hau garrantzitsua da: **Git bertsio-kontrolerako sistema da**, bere komando eta datu-eredu propioarekin; **GitHub, GitLab edo Bitbucket Git repositorioak ostatatzen dituzten plataformak dira**, eta lankidetza-funtzionalitateak gehitzen dituzte gainean, pull requestak, issueak edo kode-berrikuspenak bezalakoak. Git perfektuki erabil dezakezu plataforma hauetako bat ere erabili gabe.
+
+## Git aurreratua
+
+**`git cherry-pick <commit>`**: beste adar bateko commit zehatz bat aplikatzen du uneko adarrean, eduki bera baina hash ezberdina duen commit-aren kopia bat sortuz. Beste adar bateko aldaketa zehatz bat behar duzunean, adar osoa fusionatu gabe, erabilgarria.
+
+```bash
+git cherry-pick a1b2c3d
+```
+
+**`git bisect`**: bilaketa bitar automatikoaren bidez, akats zehatz bat zein committek sartu zuen aurkitzen laguntzen du, commit-ak "onak" edo "txarrak" gisa markatuz errudunak zehaztu arte.
+
+```bash
+git bisect start
+git bisect bad
+git bisect good v1.0.0
+```
+
+**`git reflog`**: aurretik ikusi bezala, zure repositorio lokalean `HEAD`-en mugimenduen historia erakusten du, ustez galdutako lana berreskuratzeko ezinbestekoa.
+
+**`git blame <fitxategia>`**: lerroz lerro erakusten du zein commitek eta zein egilek sartu zuen azken aldiz fitxategi baten lerro bakoitza. Aldaketa zehatz baten testuinguru historikoa ulertzeko erabilgarria.
+
+```bash
+git blame src/utils.js
+```
+
+**`git clean`**: working tree-ko trackeatu gabeko fitxategiak ezabatzen ditu (`.gitignore`-n ere ez daudenak eta inoiz Git-era gehitu ez direnak).
+
+```bash
+git clean -n
+git clean -fd
+```
+
+`-n`-k zer ezabatuko litzatekeen erakusten du benetan ezabatu gabe (simulazio modua); `-fd`-k ezabaketa behartzen du karpetak barne. Komeni da beti lehenengo `-n` erabiltzea zer ezabatuko den egiaztatzeko.
+
+**`git worktree`**: repositorio bereko working tree-aren hainbat kopia izateko aukera ematen du, bakoitza adar ezberdin batean, repositorioa hainbat aldiz klonatu beharrik gabe edo etengabe `switch` egin beharrik gabe.
+
+```bash
+git worktree add ../proiektua-hotfix hotfix/akats-kritikoa
+```
+
+## Git-en eredu mentala
+
+Komandoak buruz ikasi ordez, komeni da Git-ek barrutik nola pentsatzen duen ulertzea.
+
+```text
+Working Tree
+      ↓
+   Staging
+      ↓
+   Commit
+      ↓
+    Branch
+      ↓
+   Remote
+```
+
+Barneratu beharreko zenbait ideia funtsezko:
+
+**Adarrak erreferentziak dira, ez kopiak**. Adar bat ez da fitxategi bikoiztuak dituen paraleloko karpeta bat; commit jakin bati begira dagoen izen bat besterik ez da. Adar bat sortzea ia berehalako eragiketa da, hain zuzen ere horregatik.
+
+**Commit-ek grafo bat osatzen dute, ez zerrenda bat**. Commit bakoitzak bere commit gurasoari (edo gurasoei) erreferentzia egiten dio, grafo zuzendu aziklikoa osatuz. Denboraren zati handienean grafo horrek lerro baten itxura du, baina adarrak eta merge-ak agertu bezain laster, konektatutako nodoen sare bihurtzen da.
+
+**`HEAD`-ek adierazten du une honetan non zauden**. Normalean `HEAD` adar bati begira dago (eta adar horrek committari), baina zuzenean commit jakin bati ere begira egon daiteke, "detached HEAD" izeneko egoera, adibidez bertsio zaharrak arakatzeko adarrik sortu gabe erabilgarria.
+
+**`switch` egiteak uneko erreferentzia eta working tree aldatzen ditu**. Adarrez aldatzen duzunean, Git-ek `HEAD` eguneratzen du adar berriari begira egon dadin, eta working tree berridazten du adar horrek seinalatzen duen committarekin bat etor dadin. Horregatik adarrez aldatzeak fitxategiak "agertzea" edo "desagertzea" eragin dezake: adar batean existitzen diren baina bestean ez direnak dira.
+
+**Commit bat ez da proiektuaren kopia oso eta independientea**. Barrutik, Git oso eraginkorra da: aurreko committen aldean eduki berria edo aldatua soilik gordetzen du (barne konpresio- eta erreferentzia-partekatze-mekanismoak erabiliz), kontzeptualki commit bakoitzak une horretako proiektuaren egoera osoa irudikatzen duen arren.
+
+Hau ulertzea —mugitzen diren erreferentziak, commit-en grafo bat, eta `HEAD` "non nago" puntero gisa— askoz erabilgarriagoa da epe luzera bandera-konbinazio posible bakoitza buruz ikastea baino.
+
+## Erreferentziak
+
+- [Git Documentation](https://git-scm.com/doc)
+- [Git Reference](https://git-scm.com/docs)
+- [Pro Git Book](https://git-scm.com/book/en/v2)
+- [GitHub Docs](https://docs.github.com/)
