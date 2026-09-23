@@ -1,7 +1,6 @@
 ---
 import { Image } from 'astro:assets';
 import { getCollection } from 'astro:content';
-import { getRelativeLocaleUrl } from 'astro:i18n';
 
 import BaseHead from './BaseHead.astro';
 import Footer from './Footer.astro';
@@ -27,14 +26,10 @@ const t = getTranslations(lang);
 
 const posts = (await getCollection('blog'))
 	.filter((post) => post.data.lang === lang)
-	.sort(
-		(a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf(),
-	);
+	.sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
 
 const categories = [
-	...new Set(
-		posts.flatMap((post) => post.data.categories),
-	),
+	...new Set(posts.flatMap((post) => post.data.categories)),
 ].sort();
 ---
 
@@ -83,15 +78,13 @@ const categories = [
 				border-radius: 12px;
 			}
 
+			/* Solo aplica si en el futuro se usa un <select> nativo dentro de .filter-form */
 			.filter-form select {
 				font: inherit;
 				color: rgb(var(--gray-dark));
 				background: var(--background);
 				border: none;
 				outline: none;
-			}
-
-			.filter-form select {
 				cursor: pointer;
 			}
 
@@ -320,19 +313,10 @@ const categories = [
 			}
 
 			/* --------------------------------
-			 * Empty state
+			 * Estados vacíos (sin posts / sin resultados de búsqueda)
 			 * -------------------------------- */
 
-			.empty-state {
-				padding: 3rem 1rem;
-				text-align: center;
-				color: rgb(var(--gray));
-			}
-
-			/* --------------------------------
-			 * No search results
-			 * -------------------------------- */
-
+			.empty-state,
 			.no-results {
 				padding: 3rem 1rem;
 				text-align: center;
@@ -384,10 +368,6 @@ const categories = [
 					align-items: stretch;
 					flex-direction: column;
 					margin-bottom: 1.5rem;
-				}
-
-				.language-selector {
-					margin-bottom: 0;
 				}
 
 				.search-input {
@@ -444,10 +424,7 @@ const categories = [
 				<div class="blog-controls">
 					<div class="filtros">
 						<div class="filter-form">
-							<LanguageFilter
-								currentLang={lang}
-								label={t.blog.selectLanguage}
-							/>
+							<LanguageFilter currentLang={lang} label={t.blog.selectLanguage} />
 						</div>
 
 						<div class="filter-form">
@@ -460,10 +437,7 @@ const categories = [
 						</div>
 					</div>
 
-					<form
-						class="filter-form"
-						onsubmit="return false"
-					>
+					<form class="filter-form" onsubmit="return false">
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
 							width="24"
@@ -488,113 +462,70 @@ const categories = [
 
 				{
 					posts.length === 0 ? (
-						<p class="empty-state">
-							{t.blog.noPosts}
-						</p>
+						<p class="empty-state">{t.blog.noPosts}</p>
 					) : (
 						<>
-							<ul
-								class="post-list"
-								id="post-list"
-							>
-								{
-									posts.map((post) => (
-										<li
-											data-title={post.data.title.toLowerCase()}
-											data-description={post.data.description.toLowerCase()}
-											data-categories={post.data.categories
-												.join(' ')
-												.toLowerCase()}
-										>
-											<article class="post-card">
-												<a
-													href={`/${post.data.lang}/${post.data.slug}/`}
-												>
-													<div class="post-image">
-														{post.data.heroImage && (
-															<Image
-																width={960}
-																src={post.data.heroImage}
-																alt=""
-															/>
-														)}
-													</div>
+							<ul class="post-list" id="post-list">
+								{posts.map((post) => (
+									<li
+										data-title={post.data.title.toLowerCase()}
+										data-description={post.data.description.toLowerCase()}
+										data-categories={post.data.categories.join(' ').toLowerCase()}
+									>
+										<article class="post-card">
+											<a href={`/${post.data.lang}/${post.data.slug}/`}>
+												<div class="post-image">
+													{post.data.heroImage && (
+														<Image width={960} src={post.data.heroImage} alt="" />
+													)}
+												</div>
 
-													<div class="post-content">
-														<h2 class="post-title">
-															{post.data.title}
-														</h2>
+												<div class="post-content">
+													<h2 class="post-title">{post.data.title}</h2>
+													<p class="post-description">{post.data.description}</p>
 
-														<p class="post-description">
-															{post.data.description}
-														</p>
+													{post.data.categories.length > 0 && (
+														<div class="post-categories">
+															{post.data.categories.map((category) => {
+																const definition = getCategory(category);
 
-														{
-															post.data.categories.length > 0 && (
-																<div class="post-categories">
-																	{
-																		post.data.categories.map(
-																			(category) => {
-																				const definition =
-																					getCategory(
-																						category,
-																					);
+																return (
+																	<span
+																		class="post-category"
+																		style={`--category-color: ${definition.color}`}
+																	>
+																		<span class="post-category-icon">
+																			<CategoryIcon icon={definition.icon} size={14} />
+																		</span>
+																		<span>
+																			{t.blog.categories[
+																				category as keyof typeof t.blog.categories
+																			] ?? category}
+																		</span>
+																	</span>
+																);
+															})}
+														</div>
+													)}
 
-																				return (
-																					<span
-																						class="post-category"
-																						style={`--category-color: ${definition.color}`}
-																					>
-																						<span class="post-category-icon">
-																							<CategoryIcon
-																								icon={
-																									definition.icon
-																								}
-																								size={14}
-																							/>
-																						</span>
-
-																						<span>
-																							{t.blog.categories[
-																								category as keyof typeof t.blog.categories
-																							] ??
-																								category}
-																						</span>
-																					</span>
-																				);
-																			},
-																		)
-																	}
-																</div>
-															)
-														}
-
-														<p class="post-date">
-															<svg
-																xmlns="http://www.w3.org/2000/svg"
-																viewBox="0 -960 960 960"
-																aria-hidden="true"
-															>
-																<path d="M200-80q-33 0-56.5-23.5T120-160v-560q0-33 23.5-56.5T200-800h40v-40q0-17 11.5-28.5T280-880t28.5 11.5T320-840v40h320v-40q0-17 11.5-28.5T680-880t28.5 11.5T720-840v40h40q33 0 56.5 23.5T840-720v560q0 33-23.5 56.5T760-80zm0-80h560v-400H200zm0-480h560v-80H200zm0 0v-80z" />
-															</svg>
-
-															<FormattedDate
-																date={post.data.pubDate}
-															/>
-														</p>
-													</div>
-												</a>
-											</article>
-										</li>
-									))
-								}
+													<p class="post-date">
+														<svg
+															xmlns="http://www.w3.org/2000/svg"
+															viewBox="0 -960 960 960"
+															aria-hidden="true"
+														>
+															<path d="M200-80q-33 0-56.5-23.5T120-160v-560q0-33 23.5-56.5T200-800h40v-40q0-17 11.5-28.5T280-880t28.5 11.5T320-840v40h320v-40q0-17 11.5-28.5T680-880t28.5 11.5T720-840v40h40q33 0 56.5 23.5T840-720v560q0 33-23.5 56.5T760-80zm0-80h560v-400H200zm0-480h560v-80H200zm0 0v-80z" />
+														</svg>
+														<FormattedDate date={post.data.pubDate} />
+													</p>
+												</div>
+											</a>
+										</article>
+									</li>
+								))}
 							</ul>
 
-							<p
-								id="no-results"
-								class="no-results"
-								hidden
-							>
+							<p id="no-results" class="no-results" hidden>
 								{t.blog.noResults}
 							</p>
 						</>
@@ -606,50 +537,31 @@ const categories = [
 		<Footer />
 
 		<script>
-			const searchInput =
-				document.querySelector('#blog-search');
-
-			const categoryFilter =
-				document.querySelector<HTMLElement>(
-					'[data-category-filter]',
-				);
-
-			const postList =
-				document.querySelector('#post-list');
-
-			const noResults =
-				document.querySelector('#no-results');
+			const searchInput = document.querySelector('#blog-search');
+			const categoryFilter = document.querySelector<HTMLElement>('[data-category-filter]');
+			const postList = document.querySelector<HTMLElement>('#post-list');
+			const noResults = document.querySelector<HTMLElement>('#no-results');
 
 			if (
-				searchInput instanceof HTMLInputElement &&
-				categoryFilter instanceof HTMLElement &&
-				postList instanceof HTMLElement &&
-				noResults instanceof HTMLElement
+				!(searchInput instanceof HTMLInputElement) ||
+				!categoryFilter ||
+				!postList ||
+				!noResults
 			) {
-				const postItems =
-					Array.from(
-						postList.querySelectorAll<HTMLLIElement>(
-							':scope > li',
-						),
-					);
+				// Sin post-list (0 posts) no hay nada que filtrar.
+			} else {
+				const postItems = Array.from(postList.querySelectorAll<HTMLLIElement>(':scope > li'));
 
 				let selectedCategory = '';
 
 				const filterPosts = () => {
-					const searchTerm =
-						searchInput.value.trim().toLowerCase();
-
+					const searchTerm = searchInput.value.trim().toLowerCase();
 					let visiblePosts = 0;
 
 					for (const post of postItems) {
-						const title =
-							post.dataset.title ?? '';
-
-						const description =
-							post.dataset.description ?? '';
-
-						const categories =
-							post.dataset.categories ?? '';
+						const title = post.dataset.title ?? '';
+						const description = post.dataset.description ?? '';
+						const categories = post.dataset.categories ?? '';
 
 						const matchesSearch =
 							searchTerm === '' ||
@@ -658,48 +570,25 @@ const categories = [
 							categories.includes(searchTerm);
 
 						const matchesCategory =
-							selectedCategory === '' ||
-							categories
-								.split(' ')
-								.includes(
-									selectedCategory,
-								);
+							selectedCategory === '' || categories.split(' ').includes(selectedCategory);
 
-						const shouldShow =
-							matchesSearch &&
-							matchesCategory;
-
+						const shouldShow = matchesSearch && matchesCategory;
 						post.hidden = !shouldShow;
 
-						if (shouldShow) {
-							visiblePosts++;
-						}
+						if (shouldShow) visiblePosts++;
 					}
 
-					noResults.hidden =
-						visiblePosts > 0;
+					noResults.hidden = visiblePosts > 0;
 				};
 
-				searchInput.addEventListener(
-					'input',
-					filterPosts,
-				);
+				searchInput.addEventListener('input', filterPosts);
 
-				categoryFilter.addEventListener(
-					'category-change',
-					(event) => {
-						if (
-							event instanceof CustomEvent &&
-							typeof event.detail?.value ===
-								'string'
-						) {
-							selectedCategory =
-								event.detail.value;
-
-							filterPosts();
-						}
-					},
-				);
+				categoryFilter.addEventListener('category-change', (event) => {
+					if (event instanceof CustomEvent && typeof event.detail?.value === 'string') {
+						selectedCategory = event.detail.value;
+						filterPosts();
+					}
+				});
 			}
 		</script>
 	</body>
