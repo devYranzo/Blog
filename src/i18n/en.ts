@@ -9,6 +9,7 @@ export default {
     selectLanguage: "Select language",
     noPosts: "No articles available in this language.",
     back: "Back",
+    backToTop: 'Back to top',
     updated: "Updated",
 
     search: "Search articles...",

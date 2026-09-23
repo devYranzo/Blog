@@ -9,6 +9,7 @@ export default {
     selectLanguage: "Hizkuntza hautatu",
     noPosts: "Ez dago artikulurik hizkuntza honetan.",
     back: "Itzuli",
+    backToTop: "Hasierara itzuli",
     updated: "Eguneratua",
 
     search: "Artikuluak bilatu...",

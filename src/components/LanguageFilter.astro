@@ -2,11 +2,13 @@
 interface Props {
 	currentLang: 'es' | 'en' | 'eu';
 	label: string;
+	urls?: Partial<Record<'es' | 'en' | 'eu', string | null>>;
 }
 
 const {
 	currentLang,
 	label,
+	urls,
 } = Astro.props;
 
 const languages = [
@@ -84,9 +86,12 @@ const currentLanguage =
 				const selected =
 					language.code === currentLang;
 
+				const href =
+					urls?.[language.code] ?? language.url;
+
 				return (
 					<a
-						href={language.url}
+						href={href ?? language.url}
 						class:list={[
 							'language-option',
 							{
@@ -105,13 +110,13 @@ const currentLanguage =
 
 							{
 								language.code === 'en' && (
-									<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" viewBox="0 0 60 40"><g clip-path={`url(#uk-clip-${language.code})`}><path fill="#012169" d="M0 0h60v40H0z"/><path stroke="#fff" stroke-width="10" d="m0 0 60 40m0-40L0 40"/><path stroke="#c8102e" stroke-width="5" d="m0 0 60 40m0-40L0 40"/><path stroke="#fff" stroke-width="14" d="M30 0v40M0 20h60"/><path stroke="#c8102e" stroke-width="8" d="M30 0v40M0 20h60"/></g></svg>
+									<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" viewBox="0 0 60 40"><defs><clipPath id={`uk-clip-${language.code}`}><rect width="60" height="40" rx="4"/></clipPath></defs><g clip-path={`url(#uk-clip-${language.code})`}><path fill="#012169" d="M0 0h60v40H0z"/><path stroke="#fff" stroke-width="10" d="m0 0 60 40m0-40L0 40"/><path stroke="#c8102e" stroke-width="5" d="m0 0 60 40m0-40L0 40"/><path stroke="#fff" stroke-width="14" d="M30 0v40M0 20h60"/><path stroke="#c8102e" stroke-width="8" d="M30 0v40M0 20h60"/></g></svg>
 								)
 							}
 
 							{
 								language.code === 'eu' && (
-                  <svg xmlns="http://www.w3.org/2000/svg" id="svg559" x="0" y="0" viewBox="0 0 304.05 168.84"><g id="g571" transform="translate(-28.946 -46.566)scale(.78253)"><path id="rect564" d="M37.004 59.643h388.5v214.79h-388.5z" style="fill-rule:evenodd;fill:red"/><path id="path570" d="m425.54 76.247-.11-16.74-36.9.172-351.49 197.73-.001 16.99 36.936-.24 351.56-197.91z" style="fill-rule:evenodd;fill:#008d00"/><path id="path568" d="M37.143 76.973V59.922l35.659-.139 352.53 197.84v16.68l-38.08-.14-350.11-197.19z" style="fill-rule:evenodd;fill:#008d00"/><path id="rect565" d="M213.06 59.643h32.864v215.62H213.06z" style="fill-rule:evenodd;stroke-width:.89061;fill:#fff"/><path id="rect566" d="M-183.57 36.766h32.864v388.48h-32.864z" style="fill-rule:evenodd;stroke-width:1.1978;fill:#fff" transform="rotate(-90.085)skewX(-.06)"/></g></svg>
+									<svg xmlns="http://www.w3.org/2000/svg" id="svg559" x="0" y="0" viewBox="0 0 304.05 168.84"><g id="g571" transform="translate(-28.946 -46.566)scale(.78253)"><path id="rect564" d="M37.004 59.643h388.5v214.79h-388.5z" style="fill-rule:evenodd;fill:red"/><path id="path570" d="m425.54 76.247-.11-16.74-36.9.172-351.49 197.73-.001 16.99 36.936-.24 351.56-197.91z" style="fill-rule:evenodd;fill:#008d00"/><path id="path568" d="M37.143 76.973V59.922l35.659-.139 352.53 197.84v16.68l-38.08-.14-350.11-197.19z" style="fill-rule:evenodd;fill:#008d00"/><path id="rect565" d="M213.06 59.643h32.864v215.62H213.06z" style="fill-rule:evenodd;stroke-width:.89061;fill:#fff"/><path id="rect566" d="M-183.57 36.766h32.864v388.48h-32.864z" style="fill-rule:evenodd;stroke-width:1.1978;fill:#fff" transform="rotate(-90.085)skewX(-.06)"/></g></svg>
 								)
 							}
 						</span>
