@@ -31,12 +31,28 @@ const posts = (await getCollection('blog'))
 const categories = [
 	...new Set(posts.flatMap((post) => post.data.categories)),
 ].sort();
+
+// SEO: Generate alternate links for each language version of the blog home page
+const alternateLinks = [
+	{
+		lang: 'es',
+		url: new URL('/es/', Astro.site).href,
+	},
+	{
+		lang: 'en',
+		url: new URL('/en/', Astro.site).href,
+	},
+	{
+		lang: 'eu',
+		url: new URL('/eu/', Astro.site).href,
+	},
+];
 ---
 
 <!doctype html>
 <html lang={lang}>
 	<head>
-		<BaseHead title={SITE_TITLE} description={SITE_DESCRIPTION} />
+		<BaseHead title={SITE_TITLE} description={SITE_DESCRIPTION} alternates={alternateLinks} />
 
 		<style>
 			main {

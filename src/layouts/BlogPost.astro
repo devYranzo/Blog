@@ -41,11 +41,32 @@ for (const post of translations) {
 		post.data.slug,
 	);
 }
+
+// SEO: Generate alternate links for each language version of the blog post
+const alternateLinks = Object.entries(translationUrls)
+	.flatMap(([locale, url]) =>
+		url
+			? [
+					{
+						lang: locale,
+						url: new URL(url, Astro.site).href,
+					},
+				]
+			: [],
+	);
 ---
 
 <html lang={lang}>
 	<head>
-		<BaseHead title={title} description={description} />
+		<BaseHead
+			title={title}
+			description={description}
+			image={heroImage}
+			type="article"
+			publishedTime={pubDate}
+			modifiedTime={updatedDate}
+			alternates={alternateLinks}
+		/>
 
 		<style>
 			:global(html) {
